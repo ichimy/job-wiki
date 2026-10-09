@@ -3,12 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  CircleDotIcon,
+  ExpandIcon,
   Maximize2Icon,
   Minimize2Icon,
   MinusIcon,
-  PauseIcon,
-  PlayIcon,
   PlusIcon,
   XIcon,
 } from "lucide-react";
@@ -79,8 +77,8 @@ const GAP_Y = 300;
 const JOB_SPREAD = 96;
 const JOB_R = 6;
 const JOB_LABEL_MIN_SCALE = 1.05;
-/** 三栏布局下画布更窄，适应画布的缩放更小，岗位节点不宜要求过高的放大倍数 */
-const JOB_DOT_MIN_SCALE = 0.8;
+/** 默认视角（适应画布）也能看到并点到岗位 */
+const JOB_DOT_MIN_SCALE = 0.5;
 const PADDING = 40;
 
 /** 世界坐标布局：第一行从左到右，第二行从右到左，形成蛇形主链。 */
@@ -150,9 +148,6 @@ export function WorkflowCanvas({
 }) {
   const [selection, setSelection] = useState<Selection>(null);
   const [hover, setHover] = useState<Selection>(null);
-  const [flowing, setFlowing] = useState(true);
-  /** 手动展开岗位层：默认视角（缩放不够）也能点到岗位 */
-  const [showJobLayer, setShowJobLayer] = useState(false);
 
   const layout = useMemo(() => computeLayout(stages), [stages]);
   const edges = useMemo(
@@ -168,8 +163,6 @@ export function WorkflowCanvas({
 
   const hoverRef = useRef<Selection>(null);
   const selectionRef = useRef<Selection>(null);
-  const flowingRef = useRef(true);
-  const showJobLayerRef = useRef(false);
   const phaseRef = useRef(0);
 
   useEffect(() => {
@@ -178,12 +171,6 @@ export function WorkflowCanvas({
   useEffect(() => {
     selectionRef.current = selection;
   }, [selection]);
-  useEffect(() => {
-    flowingRef.current = flowing;
-  }, [flowing]);
-  useEffect(() => {
-    showJobLayerRef.current = showJobLayer;
-  }, [showJobLayer]);
 
   const getBounds = (): CanvasBounds => {
     const xs = layout.stageRects.map((rect) => rect.x);
@@ -209,7 +196,7 @@ export function WorkflowCanvas({
   function hitTest(clientX: number, clientY: number): Selection {
     const { x, y } = toWorld(clientX, clientY);
     const scale = viewRef.current.scale;
-    const showJobs = showJobLayerRef.current || scale >= JOB_DOT_MIN_SCALE;
+    const showJobs = scale >= JOB_DOT_MIN_SCALE;
     const radius = Math.max(JOB_R + 4, 10 / scale);
 
     if (showJobs) {
@@ -288,7 +275,7 @@ export function WorkflowCanvas({
               ? active.index
               : null;
       const activeJobId = active?.kind === "job" ? active.jobId : null;
-      const showJobs = showJobLayerRef.current || view.scale >= JOB_DOT_MIN_SCALE;
+      const showJobs = view.scale >= JOB_DOT_MIN_SCALE;
       const showJobLabels = view.scale >= JOB_LABEL_MIN_SCALE;
 
       // 1. 阶段之间的交付曲线
@@ -467,7 +454,7 @@ export function WorkflowCanvas({
     const render = (now: number) => {
       const delta = Math.min(64, now - last);
       last = now;
-      if (flowingRef.current && !reduced) phaseRef.current += delta / 1000;
+      if (!reduced) phaseRef.current += delta / 1000;
       draw();
       raf = requestAnimationFrame(render);
     };
@@ -508,31 +495,14 @@ export function WorkflowCanvas({
             setHover(null);
           }}
         />
-      </div>
 
-      {/* 右栏：控制条 + 明细 */}
-      <aside className="flex flex-col gap-3 lg:sticky lg:top-20 lg:max-h-[calc(100svh-11.5rem)] lg:min-h-[520px] lg:overflow-y-auto lg:pr-1">
-        {header}
-
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setFlowing((value) => !value)}
-            data-testid="pipeline-play"
-            className="gap-1.5"
-          >
-            {flowing ? (
-              <PauseIcon className="size-3.5" />
-            ) : (
-              <PlayIcon className="size-3.5" />
-            )}
-            {flowing ? "暂停交付流" : "播放交付流"}
-          </Button>
+        {/* 画布操作浮层：缩放到一角，不再占用右栏 */}
+        <div className="absolute right-3 bottom-3 z-10 flex items-center gap-0.5 rounded-lg border border-border/70 bg-background/85 p-0.5 shadow-sm backdrop-blur">
           <Button
             size="icon-sm"
-            variant="outline"
+            variant="ghost"
             aria-label="缩小"
+            title="缩小"
             data-testid="canvas-zoom-out"
             onClick={() => zoomBy(0.8)}
           >
@@ -540,27 +510,30 @@ export function WorkflowCanvas({
           </Button>
           <Button
             size="icon-sm"
-            variant="outline"
+            variant="ghost"
             aria-label="放大"
+            title="放大"
             data-testid="canvas-zoom-in"
             onClick={() => zoomBy(1.25)}
           >
             <PlusIcon className="size-3.5" />
           </Button>
+          <span aria-hidden="true" className="mx-0.5 h-4 w-px bg-border" />
           <Button
-            size="sm"
-            variant="outline"
-            className="gap-1.5"
+            size="icon-sm"
+            variant="ghost"
+            aria-label="适应画布"
+            title="适应画布"
             data-testid="canvas-fit"
             onClick={fit}
           >
             <Maximize2Icon className="size-3.5" />
-            适应
           </Button>
           <Button
-            size="sm"
-            variant="outline"
-            className="gap-1.5"
+            size="icon-sm"
+            variant="ghost"
+            aria-label={fullscreen.isFullscreen ? "退出全屏" : "全屏查看"}
+            title={fullscreen.isFullscreen ? "退出全屏" : "全屏查看"}
             data-testid="canvas-fullscreen"
             data-fullscreen={fullscreen.isFullscreen ? "true" : "false"}
             onClick={fullscreen.toggle}
@@ -568,22 +541,15 @@ export function WorkflowCanvas({
             {fullscreen.isFullscreen ? (
               <Minimize2Icon className="size-3.5" />
             ) : (
-              <Maximize2Icon className="size-3.5" />
+              <ExpandIcon className="size-3.5" />
             )}
-            {fullscreen.isFullscreen ? "退出全屏" : "全屏"}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1.5"
-            data-testid="canvas-toggle-jobs"
-            aria-pressed={showJobLayer}
-            onClick={() => setShowJobLayer((value) => !value)}
-          >
-            <CircleDotIcon className="size-3.5" />
-            {showJobLayer ? "收起岗位" : "展开岗位"}
           </Button>
         </div>
+      </div>
+
+      {/* 右栏：控制条 + 明细 */}
+      <aside className="flex flex-col gap-3 lg:sticky lg:top-20 lg:max-h-[calc(100svh-11.5rem)] lg:min-h-[520px] lg:overflow-y-auto lg:pr-1">
+        {header}
 
         {selectedStage && (
           <Card size="sm" data-testid="stage-detail" className="gap-2">

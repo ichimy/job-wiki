@@ -200,11 +200,6 @@ test("链路页：文本层给出阶段与交付关系，点画布才展开岗�
     "12 条交付关系",
   );
   await expect(page.getByTestId("stage-detail")).toHaveCount(0);
-
-  const play = page.getByTestId("pipeline-play");
-  await expect(play).toContainText("暂停交付流");
-  await play.click();
-  await expect(play).toContainText("播放交付流");
 });
 
 test("链路页画布：可缩放、点节点出明细", async ({ page }) => {
@@ -295,7 +290,7 @@ test("链路页画布：可缩放、点节点出明细", async ({ page }) => {
     .toBeLessThanOrEqual(after);
 });
 
-test("链路页画布：不放大时也能用「展开岗位」点到岗位", async ({ page }) => {
+test("链路页画布：操作浮层在画布一角，默认视角就能点岗位", async ({ page }) => {
   await page.goto("/workflow/W01");
 
   const canvas = page.getByTestId("workflow-canvas");
@@ -314,17 +309,26 @@ test("链路页画布：不放大时也能用「展开岗位」点到岗位", as
     .poll(async () => Object.keys((await readDebug())?.jobs ?? {}).length)
     .toBeGreaterThan(0);
 
-  const zoom = (await readDebug())?.zoom ?? 0;
-  expect(zoom).toBeLessThan(0.8); // 默认视角本来点不到岗位
+  // 暂停交付流 / 展开岗位 两个按钮已去掉
+  await expect(page.getByTestId("pipeline-play")).toHaveCount(0);
+  await expect(page.getByTestId("canvas-toggle-jobs")).toHaveCount(0);
 
-  const toggle = page.getByTestId("canvas-toggle-jobs");
-  await expect(toggle).toHaveText(/展开岗位/);
-  await toggle.click();
-  await expect(toggle).toHaveAttribute("aria-pressed", "true");
-
+  // 四个操作按钮落在画布右下角（浮层内）
   const box = await canvas.boundingBox();
   expect(box).not.toBeNull();
   if (!box) return;
+  for (const id of ["canvas-zoom-out", "canvas-zoom-in", "canvas-fit", "canvas-fullscreen"]) {
+    const btn = page.getByTestId(id);
+    await expect(btn).toBeVisible();
+    const btnBox = await btn.boundingBox();
+    expect(btnBox, `${id} 应在画布内`).not.toBeNull();
+    if (btnBox) {
+      expect(btnBox.x).toBeGreaterThan(box.x + box.width / 2);
+      expect(btnBox.y).toBeGreaterThan(box.y + box.height / 2);
+    }
+  }
+
+  // 默认视角即可点到岗位
   const job = Object.values((await readDebug())?.jobs ?? {})[0];
   expect(job).toBeTruthy();
   if (!job) return;

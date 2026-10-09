@@ -66,6 +66,27 @@ test("链路页：交付流可播放，交接口可展开「谁交给谁」", as
   await expect(detail).toHaveCount(0);
 });
 
+test("链路页：默认只给核心节点，点阶段才展开岗位", async ({ page }) => {
+  await page.goto("/workflow/W01");
+
+  // 浅层视图不铺岗位文字
+  await expect(page.getByTestId("stage-detail")).toHaveCount(0);
+  await expect(page.getByTestId("workflow-stage").nth(2)).toContainText(
+    "4 岗位",
+  );
+
+  await page.getByTestId("workflow-stage").nth(2).click();
+  const stageDetail = page.getByTestId("stage-detail");
+  await expect(stageDetail).toBeVisible();
+  await expect(stageDetail).toContainText("研发实现");
+  await expect(stageDetail).toContainText("Java");
+
+  // 点交接口会从「阶段明细」切到「交付明细」
+  await page.getByTestId("handoff-toggle").nth(2).click();
+  await expect(page.getByTestId("handoff-detail")).toBeVisible();
+  await expect(stageDetail).toHaveCount(0);
+});
+
 test("⌘K 搜岗位并跳转", async ({ page }) => {
   await page.goto("/");
 

@@ -86,7 +86,8 @@ export default async function WorkflowPage({
           {workflow.description}
         </p>
         <p className="text-xs text-muted-foreground">
-          {workflow.stages.length} 个阶段 · {getWorkflowJobCount(workflow)} 个岗位
+          {workflow.stages.length} 个阶段 · {getWorkflowJobCount(workflow)} 个岗位 ·{" "}
+          {handoffs.reduce((sum, handoff) => sum + handoff.count, 0)} 条交付关系
         </p>
         {industries.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5">
@@ -114,6 +115,7 @@ export default async function WorkflowPage({
           jobs: getStageJobs(stage).map((job) => ({
             id: job.id,
             name: job.name,
+            duty: job.duty,
             hot: isHot(job.id),
           })),
         }))}

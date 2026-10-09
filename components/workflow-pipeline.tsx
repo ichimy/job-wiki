@@ -6,6 +6,7 @@ import {
   ArrowDownIcon,
   ArrowLeftIcon,
   ArrowRightIcon,
+  ChevronRightIcon,
   PlayIcon,
   RotateCcwIcon,
   XIcon,
@@ -13,11 +14,17 @@ import {
 import { cn } from "cn";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export interface PipelineJob {
   id: string;
   name: string;
+  duty: string;
   hot: boolean;
 }
 
@@ -27,10 +34,15 @@ export interface PipelineStage {
   jobs: PipelineJob[];
 }
 
+type Selection = { kind: "stage" | "handoff"; index: number } | null;
+
 /**
- * 桌面端把阶段排成「Z 字折返」：第一行从左到右，折返线回到左边，第二行继续，
- * 一屏就能看完整条链路；窄屏自动退化为纵向堆叠。
- * DOM 顺序始终是「阶段 1 → 交接口 → 阶段 2 …」，测试与读屏都按顺序拿到。
+ * 信息由浅到深：
+ *   第一层（默认）只给核心节点与协作关系——阶段名、岗位数、两段之间的交付条数；
+ *   第二层（点阶段）展开该阶段的岗位；
+ *   第二层（点交接口）展开「谁交给谁」；
+ *   第三层是岗位页本身，职责与上下游都在那里。
+ * 桌面端按 Z 字折返排布，一屏看完整条链路；窄屏自动退化为纵向堆叠。
  */
 export function WorkflowPipeline({
   stages,
@@ -41,7 +53,7 @@ export function WorkflowPipeline({
 }) {
   const [playing, setPlaying] = useState(false);
   const [runId, setRunId] = useState(0);
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [selection, setSelection] = useState<Selection>(null);
 
   const columns = Math.ceil(stages.length / 2);
   const gridTemplateColumns = `minmax(0,1fr)${" 4.5rem minmax(0,1fr)".repeat(Math.max(0, columns - 1))}`;
@@ -61,12 +73,17 @@ export function WorkflowPipeline({
     setPlaying(true);
   }
 
-  function toggle(index: number) {
-    setOpenIndex((value) => (value === index ? null : index));
+  function toggle(next: Selection) {
+    setSelection((current) =>
+      current && next && current.kind === next.kind && current.index === next.index
+        ? null
+        : next,
+    );
   }
 
-  const open = openIndex === null ? null : stages[openIndex];
-  const openNext = openIndex === null ? null : stages[openIndex + 1];
+  const openStage =
+    selection?.kind === "stage" ? stages[selection.index] : null;
+  const openHandoff = selection?.kind === "handoff" ? selection.index : null;
 
   return (
     <div className="flex flex-col gap-3">
@@ -86,7 +103,7 @@ export function WorkflowPipeline({
           {playing ? "重放交付流" : "播放交付流"}
         </Button>
         <p className="text-xs text-muted-foreground">
-          点交接口看「谁交给谁」，色带越满表示这一段交接越多。
+          点阶段看岗位，点交接口看「谁交给谁」。
         </p>
       </div>
 
@@ -100,51 +117,53 @@ export function WorkflowPipeline({
           const column = inFirstRow
             ? index * 2 + 1
             : (index - columns) * 2 + 1;
-          const handoff = handoffCounts[index];
           const isTurn = index + 1 === columns;
           const handoffRow = inFirstRow ? 1 : 3;
           const handoffColumn = inFirstRow
             ? index * 2 + 2
             : (index - columns) * 2 + 2;
+          const stageOpen =
+            selection?.kind === "stage" && selection.index === index;
 
           return (
             <Fragment key={stage.id}>
-              <Card
-                size="sm"
+              <button
+                type="button"
                 data-testid="workflow-stage"
                 data-stage={stage.id}
+                aria-expanded={stageOpen}
+                onClick={() => toggle({ kind: "stage", index })}
                 style={{ gridRow: row, gridColumn: column }}
-                className="gap-2 ring-1 ring-border/70"
+                className={cn(
+                  "group flex cursor-pointer flex-col gap-1.5 rounded-xl bg-card p-3 text-left ring-1 transition-all",
+                  stageOpen
+                    ? "ring-2 ring-primary/60"
+                    : "ring-border/70 hover:ring-primary/40",
+                )}
               >
-                <CardHeader className="gap-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-[0.7rem] text-muted-foreground tabular-nums">
-                      阶段 {String(index + 1).padStart(2, "0")}
-                    </span>
-                    <span className="ml-auto font-mono text-[0.7rem] text-muted-foreground tabular-nums">
-                      {stage.jobs.length} 岗位
-                    </span>
-                  </div>
-                  <CardTitle className="text-sm leading-snug">
-                    {stage.name}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-wrap gap-1">
-                  {stage.jobs.map((job) => (
-                    <Badge
-                      key={job.id}
-                      variant={job.hot ? "outline" : "secondary"}
+                <span className="flex items-center gap-2 font-mono text-[0.7rem] text-muted-foreground tabular-nums">
+                  阶段 {String(index + 1).padStart(2, "0")}
+                  <span
+                    className={cn(
+                      "ml-auto flex items-center gap-0.5 transition-colors",
+                      stageOpen
+                        ? "text-primary"
+                        : "text-muted-foreground group-hover:text-foreground",
+                    )}
+                  >
+                    {stage.jobs.length} 岗位
+                    <ChevronRightIcon
                       className={cn(
-                        "h-6 max-w-full gap-1 font-normal",
-                        job.hot && "border-hot/40 bg-hot-soft text-hot",
+                        "size-3 transition-transform",
+                        stageOpen && "rotate-90",
                       )}
-                      render={<Link href={`/job/${job.id}`} />}
-                    >
-                      <span className="truncate">{job.name}</span>
-                    </Badge>
-                  ))}
-                </CardContent>
-              </Card>
+                    />
+                  </span>
+                </span>
+                <span className="text-sm leading-snug font-medium">
+                  {stage.name}
+                </span>
+              </button>
 
               {index < stages.length - 1 && (
                 <div
@@ -162,11 +181,11 @@ export function WorkflowPipeline({
                 >
                   <HandoffButton
                     index={index}
-                    count={handoff}
+                    count={handoffCounts[index]}
                     densest={densest}
                     playing={playing}
                     runId={runId}
-                    openIndex={openIndex}
+                    selected={openHandoff === index}
                     onToggle={toggle}
                     align={isTurn ? "end" : "center"}
                     arrow={isTurn ? "down" : "right"}
@@ -185,22 +204,67 @@ export function WorkflowPipeline({
         })}
       </div>
 
-      {open && openNext && openIndex !== null && (
+      {openStage && (
+        <Card size="sm" data-testid="stage-detail" className="gap-2">
+          <CardHeader className="gap-1">
+            <div className="flex items-start gap-2">
+              <CardTitle className="text-sm">{openStage.name}</CardTitle>
+              <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                {openStage.jobs.length} 个岗位
+              </span>
+              <Button
+                size="icon-xs"
+                variant="ghost"
+                className="ml-auto"
+                aria-label="收起岗位"
+                onClick={() => setSelection(null)}
+              >
+                <XIcon />
+              </Button>
+            </div>
+          </CardHeader>
+          <div className="flex flex-wrap gap-1.5 px-3 pb-3">
+            {openStage.jobs.map((job) => (
+              <Tooltip key={job.id}>
+                <TooltipTrigger
+                  render={
+                    <Badge
+                      variant={job.hot ? "outline" : "secondary"}
+                      className={cn(
+                        "h-7 cursor-pointer gap-1 font-normal",
+                        job.hot && "border-hot/40 bg-hot-soft text-hot",
+                      )}
+                      render={<Link href={`/job/${job.id}`} />}
+                    />
+                  }
+                >
+                  {job.name}
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs leading-relaxed">
+                  {job.duty}
+                </TooltipContent>
+              </Tooltip>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {openHandoff !== null && (
         <Card size="sm" data-testid="handoff-detail" className="gap-2">
           <CardHeader className="gap-1">
             <div className="flex items-start gap-2">
               <CardTitle className="text-sm">
-                {open.name} → {openNext.name}
+                {stages[openHandoff].name} → {stages[openHandoff + 1].name}
               </CardTitle>
               <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                {handoffCounts[openIndex]} 条交付关系
+                {handoffCounts[openHandoff]} 条交付关系
               </span>
               <Button
                 size="icon-xs"
                 variant="ghost"
                 className="ml-auto"
                 aria-label="收起交付明细"
-                onClick={() => setOpenIndex(null)}
+                onClick={() => setSelection(null)}
               >
                 <XIcon />
               </Button>
@@ -209,8 +273,8 @@ export function WorkflowPipeline({
               上一阶段每个人的产出，交给下一阶段的这几个人。
             </p>
           </CardHeader>
-          <CardContent className="grid gap-1.5 sm:grid-cols-2">
-            {open.jobs.map((job) => (
+          <div className="grid gap-1.5 px-3 pb-3 sm:grid-cols-2">
+            {stages[openHandoff].jobs.map((job) => (
               <div key={job.id} className="flex items-start gap-1.5 text-xs">
                 <Link
                   href={`/job/${job.id}`}
@@ -220,11 +284,13 @@ export function WorkflowPipeline({
                 </Link>
                 <span className="text-muted-foreground">→</span>
                 <span className="text-muted-foreground">
-                  {openNext.jobs.map((target) => target.name).join("、")}
+                  {stages[openHandoff + 1].jobs
+                    .map((target) => target.name)
+                    .join("、")}
                 </span>
               </div>
             ))}
-          </CardContent>
+          </div>
         </Card>
       )}
     </div>
@@ -237,7 +303,7 @@ function HandoffButton({
   densest,
   playing,
   runId,
-  openIndex,
+  selected,
   onToggle,
   align,
   arrow,
@@ -247,8 +313,8 @@ function HandoffButton({
   densest: number;
   playing: boolean;
   runId: number;
-  openIndex: number | null;
-  onToggle: (index: number) => void;
+  selected: boolean;
+  onToggle: (next: Selection) => void;
   align: "center" | "end";
   arrow: "right" | "down";
 }) {
@@ -258,14 +324,14 @@ function HandoffButton({
     <button
       type="button"
       data-testid="handoff-toggle"
-      aria-expanded={openIndex === index}
+      aria-expanded={selected}
       aria-label={`查看这一段交付明细（${count} 条）`}
-      onClick={() => onToggle(index)}
+      onClick={() => onToggle({ kind: "handoff", index })}
       className={cn(
         "group flex cursor-pointer flex-row items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:flex-col lg:gap-1 lg:px-1",
         align === "end" && "lg:ml-auto lg:w-40 lg:items-end",
         align === "center" && "lg:w-full",
-        openIndex === index && "bg-muted text-foreground",
+        selected && "bg-muted text-foreground",
       )}
     >
       <span className="shrink-0 font-mono tabular-nums">{count} 条</span>

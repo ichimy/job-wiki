@@ -63,3 +63,5 @@ Prefer short imperative subjects with a scope, e.g. `data: 补充新能源行业
 No secrets are needed in the repo. Keep the site free of external requests and outbound links to third-party sites; the only external URL is the canonical site origin in `lib/site.ts` (`NEXT_PUBLIC_SITE_URL` overrides it on Vercel).
 
 Vercel Web Analytics and Speed Insights are wired in `app/layout.tsx` and render only when `VERCEL_ENV === "production"`, so production gets same-origin observability scripts (`/_vercel/insights/*`, `/_vercel/speed-insights/*`) while local and preview runs load nothing — their development mode would otherwise call `va.vercel-scripts.com`.
+
+Next.js 16 has breaking changes versus older conventions; before writing framework code, check the bundled docs under `node_modules/next/dist/docs/`.

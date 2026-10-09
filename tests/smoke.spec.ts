@@ -76,6 +76,7 @@ test("菜单：侧栏随视图切换，岗位页高亮所属行业与链路", as
 
   // 岗位页跨视图：两份清单都在，并高亮所属行业与链路
   await page.goto("/job/J0001");
+  await expect(page.getByTestId("sidebar-workflow")).toHaveCount(1);
   await expect(
     page.locator('[data-testid="sidebar-category"][data-highlighted="true"]'),
   ).toHaveCount(1);
@@ -95,6 +96,8 @@ test("菜单：深行业 / 深链路的岗位，高亮项也要看得见", async
   await expect(page.getByTestId("sidebar-current-workflow")).toHaveText(
     "品牌营销链路",
   );
+  // 岗位页只列相关链路：J0568 只属于 1 条
+  await expect(page.getByTestId("sidebar-workflow")).toHaveCount(1);
 
   // 两份清单里的高亮项都要落在各自滚动容器的可视区内
   const visible = await page.evaluate(() => {
@@ -104,8 +107,11 @@ test("菜单：深行业 / 深链路的岗位，高亮项也要看得见", async
       const container =
         item.closest('[data-slot="scroll-area-viewport"]') ??
         item.closest(".overflow-y-auto");
-      if (!container) return null;
       const itemBox = item.getBoundingClientRect();
+      // 岗位页的相关链路不再套滚动容器，直接按视窗判断
+      if (!container) {
+        return itemBox.top >= 0 && itemBox.bottom <= window.innerHeight;
+      }
       const containerBox = container.getBoundingClientRect();
       return (
         itemBox.top >= containerBox.top - 1 &&
@@ -118,6 +124,21 @@ test("菜单：深行业 / 深链路的岗位，高亮项也要看得见", async
     };
   });
   expect(visible).toEqual({ category: true, workflow: true });
+});
+
+test("菜单：未纳入链路的岗位，侧栏不铺无关链路", async ({ page }) => {
+  // J0002 = C/C++，不在任何协作链路里
+  await page.goto("/job/J0002");
+  await expect(page.getByTestId("sidebar-current")).toContainText("C/C++");
+  await expect(page.getByTestId("sidebar-workflow")).toHaveCount(0);
+  await expect(page.getByTestId("sidebar-workflow-filter")).toHaveCount(0);
+  await expect(page.getByTestId("sidebar-workflow-empty")).toContainText(
+    "未纳入已整理的协作链路",
+  );
+  // 行业清单仍在（岗位属于互联网/AI）
+  await expect(
+    page.locator('[data-testid="sidebar-category"][data-highlighted="true"]'),
+  ).toHaveCount(1);
 });
 
 test("菜单：⌘K 空状态含四个视图并能跳转", async ({ page }) => {

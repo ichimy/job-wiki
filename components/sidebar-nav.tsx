@@ -63,6 +63,9 @@ export function SidebarNav({
   const currentWorkflows = (target?.workflowIds ?? [])
     .map((id) => workflows.find((workflow) => workflow.id === id))
     .filter((workflow): workflow is NavWorkflow => Boolean(workflow));
+  const relatedWorkflows = workflows.filter((workflow) =>
+    (target?.workflowIds ?? []).includes(workflow.id),
+  );
 
   return (
     <aside className="sticky top-14 hidden h-[calc(100svh-3.5rem)] w-56 shrink-0 flex-col gap-2.5 overflow-hidden py-6 lg:flex">
@@ -135,31 +138,51 @@ export function SidebarNav({
       {showWorkflows && (
         <>
           <p className="px-2.5 text-xs font-medium tracking-wide text-muted-foreground">
-            协作链路
+            {onJobView ? "相关链路" : "协作链路"}
           </p>
-          <div className="relative px-1">
-            <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={workflowFilter}
-              onChange={(event) => setWorkflowFilter(event.target.value)}
-              placeholder="筛选链路"
-              aria-label="筛选链路"
-              data-testid="sidebar-workflow-filter"
-              className="h-7 pl-7 text-xs"
-            />
-          </div>
-          <div
-            className={cn(
-              "overflow-y-auto",
-              showCategories ? "max-h-52" : "min-h-0 flex-1",
-            )}
-          >
-            <WorkflowNavList
-              workflows={visibleWorkflows}
-              testId="sidebar-workflow"
-              highlightIds={target?.workflowIds}
-            />
-          </div>
+          {onJobView ? (
+            // 岗位页只列它真正所在的链路，不相关的链路不铺出来
+            relatedWorkflows.length > 0 ? (
+              <WorkflowNavList
+                workflows={relatedWorkflows}
+                testId="sidebar-workflow"
+                highlightIds={target?.workflowIds}
+              />
+            ) : (
+              <p
+                className="px-2.5 text-xs leading-relaxed text-muted-foreground"
+                data-testid="sidebar-workflow-empty"
+              >
+                这个岗位未纳入已整理的协作链路。
+              </p>
+            )
+          ) : (
+            <>
+              <div className="relative px-1">
+                <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={workflowFilter}
+                  onChange={(event) => setWorkflowFilter(event.target.value)}
+                  placeholder="筛选链路"
+                  aria-label="筛选链路"
+                  data-testid="sidebar-workflow-filter"
+                  className="h-7 pl-7 text-xs"
+                />
+              </div>
+              <div
+                className={cn(
+                  "overflow-y-auto",
+                  showCategories ? "max-h-52" : "min-h-0 flex-1",
+                )}
+              >
+                <WorkflowNavList
+                  workflows={visibleWorkflows}
+                  testId="sidebar-workflow"
+                  highlightIds={target?.workflowIds}
+                />
+              </div>
+            </>
+          )}
         </>
       )}
 

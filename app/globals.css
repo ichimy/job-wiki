@@ -106,3 +106,65 @@
     background: color-mix(in oklab, var(--primary) 22%, transparent);
   }
 }
+
+/* 协作链路的「交付流」：交接口上一枚包裹从左流到右，一条边一个节拍 */
+@keyframes workflow-pip-run {
+  0% {
+    left: 0%;
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    left: calc(100% - 0.4rem);
+    opacity: 0;
+  }
+}
+
+.workflow-pip {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  height: 0.55rem;
+  width: 0.55rem;
+  border-radius: 9999px;
+  background: var(--primary);
+  transform: translateY(-50%);
+  box-shadow:
+    0 0 0 3px color-mix(in oklab, var(--primary) 20%, transparent),
+    0 0 10px color-mix(in oklab, var(--primary) 55%, transparent);
+  animation: workflow-pip-run 1.6s ease-in-out both;
+}
+
+/* 折返线：虚线朝左滚动，暗示流水从右折回第二行 */
+@keyframes workflow-return-run {
+  from {
+    background-position-x: 0;
+  }
+  to {
+    background-position-x: -1rem;
+  }
+}
+
+.workflow-return-line {
+  height: 1px;
+  background-image: linear-gradient(
+    to right,
+    var(--border) 0 0.5rem,
+    transparent 0.5rem 1rem
+  );
+  background-size: 1rem 1px;
+  animation: workflow-return-run 0.9s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workflow-pip {
+    left: 50%;
+    opacity: 0.6;
+    animation: none;
+  }
+}

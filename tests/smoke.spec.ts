@@ -47,6 +47,25 @@ test("链路页：W01 的 6 个阶段按顺序排列", async ({ page }) => {
   await expect(page.getByTestId("workflow-handoff")).toHaveCount(5);
 });
 
+test("链路页：交付流可播放，交接口可展开「谁交给谁」", async ({ page }) => {
+  await page.goto("/workflow/W01");
+
+  await page.getByTestId("pipeline-play").click();
+  await expect(page.getByTestId("workflow-pip")).toHaveCount(5);
+
+  const toggle = page.getByTestId("handoff-toggle").nth(2);
+  await toggle.click();
+  const detail = page.getByTestId("handoff-detail");
+  await expect(detail).toBeVisible();
+  await expect(detail).toContainText("研发实现 → 测试验证");
+  await expect(detail).toContainText("12 条交付关系");
+  await expect(detail).toContainText("测试工程师");
+
+  // 再点一次收起
+  await toggle.click();
+  await expect(detail).toHaveCount(0);
+});
+
 test("⌘K 搜岗位并跳转", async ({ page }) => {
   await page.goto("/");
 

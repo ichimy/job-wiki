@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowDownIcon } from "lucide-react";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -11,8 +10,8 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { WorkflowPipeline } from "@/components/workflow-pipeline";
 import {
   getStageJobs,
   getWorkflow,
@@ -20,6 +19,7 @@ import {
   getWorkflowIndustries,
   getWorkflowJobCount,
   getWorkflows,
+  isHot,
 } from "@/lib/data";
 
 export const dynamicParams = false;
@@ -107,58 +107,18 @@ export default async function WorkflowPage({
 
       <Separator />
 
-      <ol className="flex flex-col" data-testid="workflow-stages">
-        {workflow.stages.map((stage, index) => {
-          const jobs = getStageJobs(stage);
-          const handoff = handoffs[index];
-          return (
-            <li key={stage.id} className="flex flex-col">
-              <Card
-                size="sm"
-                className="gap-3 ring-1 ring-border/70"
-                data-testid="workflow-stage"
-                data-stage={stage.id}
-              >
-                <CardHeader className="gap-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                      阶段 {String(index + 1).padStart(2, "0")}
-                    </span>
-                    <CardTitle className="text-sm">{stage.name}</CardTitle>
-                    <span className="ml-auto font-mono text-xs text-muted-foreground tabular-nums">
-                      {jobs.length} 岗位
-                    </span>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex flex-wrap gap-1.5">
-                  {jobs.map((job) => (
-                    <Badge
-                      key={job.id}
-                      variant="secondary"
-                      className="h-6 font-normal"
-                      render={<Link href={`/job/${job.id}`} />}
-                    >
-                      {job.name}
-                    </Badge>
-                  ))}
-                </CardContent>
-              </Card>
-              {handoff && (
-                <div
-                  className="flex flex-wrap items-center gap-2 px-3 py-2 text-xs text-muted-foreground"
-                  data-testid="workflow-handoff"
-                >
-                  <ArrowDownIcon className="size-3.5" />
-                  <span>交付：{handoff.from.name} → {handoff.to.name}</span>
-                  <span className="ml-auto font-mono tabular-nums">
-                    {handoff.count} 条关系
-                  </span>
-                </div>
-              )}
-            </li>
-          );
-        })}
-      </ol>
+      <WorkflowPipeline
+        stages={workflow.stages.map((stage) => ({
+          id: stage.id,
+          name: stage.name,
+          jobs: getStageJobs(stage).map((job) => ({
+            id: job.id,
+            name: job.name,
+            hot: isHot(job.id),
+          })),
+        }))}
+        handoffCounts={handoffs.map((handoff) => handoff.count)}
+      />
     </div>
   );
 }

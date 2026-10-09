@@ -1,6 +1,7 @@
 import {
   getCategoriesWithCount,
   getWorkflowJobCount,
+  getWorkflowJobs,
   getWorkflows,
 } from "@/lib/data";
 
@@ -18,6 +19,8 @@ export interface NavWorkflow {
   description: string;
   stageCount: number;
   jobCount: number;
+  /** 出现在多条链路里的岗位数（换乘岗位），用来在菜单里打点 */
+  sharedCount: number;
 }
 
 export function getNavCategories(): NavCategory[] {
@@ -30,11 +33,23 @@ export function getNavCategories(): NavCategory[] {
 }
 
 export function getNavWorkflows(): NavWorkflow[] {
-  return getWorkflows().map((workflow) => ({
+  const workflows = getWorkflows();
+  const jobsByWorkflow = workflows.map((workflow) =>
+    getWorkflowJobs(workflow).map((job) => job.id),
+  );
+  const lanesByJob = new Map<string, number>();
+  for (const jobs of jobsByWorkflow) {
+    for (const id of jobs) lanesByJob.set(id, (lanesByJob.get(id) ?? 0) + 1);
+  }
+
+  return workflows.map((workflow, index) => ({
     id: workflow.id,
     name: workflow.name,
     description: workflow.description,
     stageCount: workflow.stages.length,
     jobCount: getWorkflowJobCount(workflow),
+    sharedCount: jobsByWorkflow[index].filter(
+      (id) => (lanesByJob.get(id) ?? 0) > 1,
+    ).length,
   }));
 }

@@ -15,6 +15,81 @@ test("首页：5 个统计、28 个行业入口、20 条链路入口", async ({ 
   await expect(page.getByTestId("workflow-link")).toHaveCount(20);
 });
 
+test("菜单：一级导航四项，可跳转并高亮当前项", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByTestId("nav-overview")).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+
+  await page.getByTestId("nav-categories").click();
+  await page.waitForURL("**/c");
+  await expect(page.getByTestId("category-entry")).toHaveCount(28);
+  await expect(page.getByTestId("nav-categories")).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+
+  await page.getByTestId("nav-workflows").click();
+  await page.waitForURL("**/workflow");
+  await expect(page.getByTestId("workflow-entry")).toHaveCount(20);
+  await expect(page.getByTestId("workflow-entry-stage")).toHaveCount(102);
+  await expect(page.getByTestId("workflow-entry-shared").first()).toBeVisible();
+
+  await page.getByTestId("nav-graph").click();
+  await page.waitForURL("**/graph");
+  await expect(page.getByTestId("map-canvas")).toBeVisible();
+  await expect(page.getByTestId("nav-graph")).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+});
+
+test("菜单：侧栏筛选，岗位页高亮所属行业与链路", async ({ page }) => {
+  await page.goto("/");
+  const categories = page.getByTestId("sidebar-category");
+  await expect(categories).toHaveCount(28);
+
+  await page.getByTestId("sidebar-category-filter").fill("教育");
+  await expect(categories).toHaveCount(1);
+  await page.getByTestId("sidebar-category-filter").fill("");
+  await expect(categories).toHaveCount(28);
+
+  await page.goto("/job/J0001");
+  await expect(
+    page.locator('[data-testid="sidebar-category"][data-highlighted="true"]'),
+  ).toHaveCount(1);
+  await expect(
+    page.locator('[data-testid="sidebar-workflow"][data-highlighted="true"]'),
+  ).toHaveCount(1);
+});
+
+test("菜单：⌘K 空状态含四个视图并能跳转", async ({ page }) => {
+  await page.goto("/");
+  await expect(async () => {
+    await page.keyboard.press("ControlOrMeta+k");
+    await expect(page.getByTestId("command-input")).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 10_000 });
+
+  await expect(page.getByTestId("command-view-item")).toHaveCount(4);
+  await page
+    .getByTestId("command-view-item")
+    .filter({ hasText: "协作地图" })
+    .first()
+    .click();
+  await page.waitForURL("**/graph");
+});
+
+test("菜单：移动端抽屉有一级入口并能唤起搜索", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 780 });
+  await page.goto("/");
+  await page.getByTestId("nav-trigger").click();
+  await expect(page.getByTestId("sheet-nav-graph")).toBeVisible();
+  await expect(page.getByTestId("sheet-nav-categories")).toBeVisible();
+  await page.getByTestId("sheet-search").click();
+  await expect(page.getByTestId("command-input")).toBeVisible();
+});
+
 test("行业页：分组、岗位卡片与即时过滤", async ({ page }) => {
   await page.goto("/c/C01");
 

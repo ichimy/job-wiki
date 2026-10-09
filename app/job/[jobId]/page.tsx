@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { NavTargetPublisher } from "@/components/nav-target-publisher";
 import {
   getCounts,
   getDownstream,
@@ -23,6 +24,7 @@ import {
   getPeers,
   getStageOf,
   getUpstream,
+  getWorkflowsOfJob,
   isHot,
   type Job,
   type WorkflowJobs,
@@ -140,12 +142,17 @@ export default async function JobPage({
   const peers = getPeers(jobId);
   const primary = memberships[0];
   const counts = getCounts();
+  const navTarget = {
+    categoryIds: memberships.map((membership) => membership.category.id),
+    workflowIds: getWorkflowsOfJob(jobId).map((workflow) => workflow.id),
+  };
   const stagePercent = position
     ? Math.round((position.index / position.total) * 100)
     : 0;
 
   return (
     <div className="flex flex-col gap-6">
+      <NavTargetPublisher target={navTarget} />
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>

@@ -6,7 +6,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { getNavCategories, getNavWorkflows } from "@/lib/nav";
-import { getCounts } from "@/lib/data";
+import { getMeta } from "@/lib/data";
 import { themeInitScript } from "@/lib/theme";
 import { siteDescription, siteName, siteUrl } from "@/lib/site";
 
@@ -41,7 +41,7 @@ export default function RootLayout({
 }) {
   const categories = getNavCategories();
   const workflows = getNavWorkflows();
-  const counts = getCounts();
+  const meta = getMeta();
 
   return (
     <html lang="zh-CN" data-theme="light" suppressHydrationWarning>
@@ -55,8 +55,8 @@ export default function RootLayout({
             <SidebarNav
               categories={categories}
               workflows={workflows}
-              jobCount={counts.jobs}
-              relationCount={counts.relations}
+              version={meta.version}
+              updated={meta.updated}
             />
             <main className="min-w-0 flex-1 pt-6 pb-20 lg:pt-8 lg:pb-24">
               {children}

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/command";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { NavCategory, NavWorkflow } from "@/lib/nav";
+import { primaryNav } from "@/lib/primary-nav";
 
 interface SearchEntry {
   id: string;
@@ -47,8 +48,15 @@ export function CommandPalette({
         setOpen((value) => !value);
       }
     }
+    function onOpenSearch() {
+      setOpen(true);
+    }
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("jobwiki:open-search", onOpenSearch);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("jobwiki:open-search", onOpenSearch);
+    };
   }, []);
 
   useEffect(() => {
@@ -148,6 +156,25 @@ export function CommandPalette({
             ) : (
               <>
                 {loading && <LoadingRows />}
+                <CommandGroup heading="视图">
+                  {primaryNav.map((item) => (
+                    <CommandItem
+                      key={item.id}
+                      value={`view ${item.label}`}
+                      data-testid="command-view-item"
+                      onSelect={() => go(item.href)}
+                      className="items-start gap-3 py-2"
+                    >
+                      <span className="flex min-w-0 flex-col gap-0.5">
+                        <span className="font-medium">{item.label}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {item.hint}
+                        </span>
+                      </span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+                <CommandSeparator />
                 <CommandGroup heading="行业">
                   {categories.map((category) => (
                     <CommandItem

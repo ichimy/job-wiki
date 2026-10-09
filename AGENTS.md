@@ -9,7 +9,9 @@ This project provides a panoramic view of the job landscape: which jobs exist, h
 - `data/jobs.json` — the single source of truth for all data.
 - `lib/data.ts` — typed access layer; imports `data/jobs.json`, builds indexes at module load, and serves every page. Server-only: never import it from a `"use client"` component (it would pull the whole dataset into the browser bundle). Pass plain props from a server component instead.
 - `lib/nav.ts` — small serializable nav payloads handed to client components.
-- `app/` — App Router pages: `/`, `/c/[categoryId]`, `/job/[jobId]`, `/workflow/[workflowId]`, plus `sitemap.ts`, `robots.ts`, `icon.svg`.
+- `app/` — App Router pages: `/`, `/c` + `/c/[categoryId]`, `/workflow` + `/workflow/[workflowId]`, `/graph`, `/job/[jobId]`, plus `sitemap.ts`, `robots.ts`, `icon.svg`.
+- `lib/primary-nav.ts` — the four first-level views; the header, the mobile sheet and the ⌘K palette all read this list, so a new view is added in one place.
+- `lib/canvas.ts`, `lib/use-canvas-viewport.ts`, `lib/use-fullscreen.ts` — shared canvas plumbing used by the workflow canvas and the collaboration map.
 - `components/` — page-level pieces; `components/ui/` holds shadcn/ui (Base UI style) primitives. Keep generated primitives close to upstream and put layout choices in the page-level components.
 - `scripts/check-data.mts` — validates `data/jobs.json` and derives `relations` / `meta.counts`.
 - `scripts/build-search-index.mts` — generates `public/search-index.json` for the ⌘K palette.

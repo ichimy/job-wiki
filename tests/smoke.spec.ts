@@ -130,6 +130,25 @@ test("菜单：未纳入链路的岗位，侧栏不铺无关链路", async ({ pa
   ).toHaveCount(1);
 });
 
+test("菜单：同行业双分组的岗位，当前岗位块不出现重复项", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") errors.push(message.text().slice(0, 200));
+  });
+
+  // J0010 高性能计算工程师：C01 后端开发 + C01 人工智能（同行业两个分组）
+  await page.goto("/job/J0010");
+  await expect(page.getByTestId("sidebar-current")).toBeVisible();
+  await expect(page.getByTestId("sidebar-current-category")).toHaveCount(1);
+  await expect(page.getByTestId("sidebar-current-category")).toHaveText(
+    "互联网/AI",
+  );
+  await expect(
+    page.locator('[data-testid="sidebar-category"][data-highlighted="true"]'),
+  ).toHaveCount(1);
+  expect(errors).toEqual([]);
+});
+
 test("菜单：⌘K 空状态含三个视图并能跳转", async ({ page }) => {
   await page.goto("/");
   await expect(async () => {
@@ -400,7 +419,17 @@ test("主要页面控制台无报错", async ({ page }) => {
   });
   page.on("pageerror", (error) => errors.push(String(error).slice(0, 200)));
 
-  for (const route of ["/", "/c", "/c/C01", "/workflow", "/workflow/W01", "/job/J0568"]) {
+  for (const route of [
+    "/",
+    "/c",
+    "/c/C01",
+    "/c/C09",
+    "/workflow",
+    "/workflow/W01",
+    "/job/J0568",
+    "/job/J0010",
+    "/job/J0319",
+  ]) {
     await page.goto(route);
     await page.waitForTimeout(300);
   }

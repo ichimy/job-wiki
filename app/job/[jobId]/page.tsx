@@ -144,8 +144,9 @@ export default async function JobPage({
   const counts = getCounts();
   const navTarget = {
     label: `${job.name}（${job.id}）`,
-    categoryIds: memberships.map((membership) => membership.category.id),
-    workflowIds: getWorkflowsOfJob(jobId).map((workflow) => workflow.id),
+    // 岗位可能同属一个行业的两个分组（如 C09 质量管理 + C09 化工），这里按行业去重
+    categoryIds: [...new Set(memberships.map((m) => m.category.id))],
+    workflowIds: [...new Set(getWorkflowsOfJob(jobId).map((w) => w.id))],
   };
   const stagePercent = position
     ? Math.round((position.index / position.total) * 100)

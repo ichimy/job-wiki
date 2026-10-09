@@ -57,10 +57,10 @@ export function SidebarNav({
 
   if (!showCategories && !showWorkflows) return null;
 
-  const currentCategories = (target?.categoryIds ?? [])
+  const currentCategories = [...new Set(target?.categoryIds ?? [])]
     .map((id) => categories.find((category) => category.id === id))
     .filter((category): category is NavCategory => Boolean(category));
-  const currentWorkflows = (target?.workflowIds ?? [])
+  const currentWorkflows = [...new Set(target?.workflowIds ?? [])]
     .map((id) => workflows.find((workflow) => workflow.id === id))
     .filter((workflow): workflow is NavWorkflow => Boolean(workflow));
   const relatedWorkflows = workflows.filter((workflow) =>

@@ -473,6 +473,31 @@ export function WorkflowCanvas({
 
   return (
     <div className="flex flex-col gap-3">
+      {/* 画布占满这一栏：控制条挪到画布下方，与明细同区 */}
+      <div
+        ref={containerRef}
+        data-fullscreen={fullscreen.isFullscreen ? "true" : "false"}
+        className={cn(
+          "relative overflow-hidden rounded-xl bg-background ring-1 ring-border/70",
+          fullscreen.isFullscreen
+            ? "h-screen w-screen p-6 ring-0"
+            : "h-[400px] lg:h-[calc(100svh-19rem)] lg:min-h-[460px]",
+        )}
+      >
+        <canvas
+          ref={canvasRef}
+          data-testid="workflow-canvas"
+          data-zoom={zoom.toFixed(2)}
+          className="size-full cursor-grab touch-none active:cursor-grabbing"
+          {...handlers}
+          onPointerMove={onPointerMove}
+          onPointerLeave={() => {
+            handlers.onPointerLeave();
+            setHover(null);
+          }}
+        />
+      </div>
+
       <div className="flex flex-wrap items-center gap-2">
         <Button
           size="sm"
@@ -530,30 +555,6 @@ export function WorkflowCanvas({
         <p className="text-xs text-muted-foreground">
           拖拽平移 · 滚轮缩放 · 点节点看细节
         </p>
-      </div>
-
-      <div
-        ref={containerRef}
-        data-fullscreen={fullscreen.isFullscreen ? "true" : "false"}
-        className={cn(
-          "relative overflow-hidden rounded-xl bg-background ring-1 ring-border/70",
-          fullscreen.isFullscreen
-            ? "h-screen w-screen p-6 ring-0"
-            : "h-[360px] lg:h-[440px]",
-        )}
-      >
-        <canvas
-          ref={canvasRef}
-          data-testid="workflow-canvas"
-          data-zoom={zoom.toFixed(2)}
-          className="size-full cursor-grab touch-none active:cursor-grabbing"
-          {...handlers}
-          onPointerMove={onPointerMove}
-          onPointerLeave={() => {
-            handlers.onPointerLeave();
-            setHover(null);
-          }}
-        />
       </div>
 
       {selectedStage && (

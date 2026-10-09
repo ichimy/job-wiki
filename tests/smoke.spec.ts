@@ -264,17 +264,22 @@ test("链路页画布：可缩放、点节点出明细", async ({ page }) => {
   expect(after).toBeGreaterThan(before);
 
   const zoomed = await readDebug();
+  // 控制条在画布下方，点它会带动页面滚动，所以重新取一次画布位置
+  const boxAfterZoom = (await canvas.boundingBox()) ?? box;
   // 放大后部分节点会移出画布，挑一个还在可见区域里的岗位
   const visibleJob = Object.values(zoomed?.jobs ?? {}).find(
     (node) =>
       node.x > 12 &&
-      node.x < box.width - 12 &&
+      node.x < boxAfterZoom.width - 12 &&
       node.y > 12 &&
-      node.y < box.height - 12,
+      node.y < boxAfterZoom.height - 12,
   );
   expect(visibleJob).toBeTruthy();
   if (!visibleJob) return;
-  await page.mouse.click(box.x + visibleJob.x, box.y + visibleJob.y);
+  await page.mouse.click(
+    boxAfterZoom.x + visibleJob.x,
+    boxAfterZoom.y + visibleJob.y,
+  );
   const jobDetail = page.getByTestId("job-detail");
   await expect(jobDetail).toBeVisible();
   await expect(jobDetail).toContainText(/上游|下游/);

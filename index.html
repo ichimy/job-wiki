@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="light dark">
-<title>职位导航 · 1098 个岗位条目</title>
+<title>岗位全景 · 行业与岗位图谱</title>
 <script>
   (function () {
     var t = null;
@@ -188,11 +188,6 @@
     font-size: 10.5px; color: var(--hot); background: var(--hot-soft);
     padding: 1px 7px; border-radius: 9px; flex-shrink: 0;
   }
-  .card-top a {
-    margin-left: auto; font-size: 11.5px; color: var(--accent);
-    text-decoration: none; opacity: 0; transition: opacity .15s; flex-shrink: 0;
-  }
-  .card:hover .card-top a, .card:focus-within .card-top a { opacity: 1; }
   .card .duty { font-size: 12.8px; color: var(--text-2); line-height: 1.7; }
 
   .empty {
@@ -247,8 +242,8 @@
 <header class="topbar">
   <div class="topbar-inner">
     <div class="brand">
-      <h1>职位导航</h1>
-      <div class="sub">数据来源：BOSS直聘职位菜单（深圳 c101280600）</div>
+      <h1>岗位全景</h1>
+      <div class="sub">行业 · 分组 · 岗位的全局视角</div>
     </div>
     <div class="stats" id="stats"></div>
     <div class="search-wrap" id="searchWrap">
@@ -275,12 +270,12 @@
   </main>
 </div>
 
-<footer>共 <span id="footTotal"></span> 个岗位条目 · job-menu.json 结构化数据</footer>
+<footer>共 <span id="footTotal"></span> 个岗位 · <span id="footMemberships"></span> 条分类归属 · 数据源 data/jobs.json</footer>
 
 <script src="data.js"></script>
 <script>
 (function () {
-  const data = window.JOB_DATA || [];
+  const data = window.JOB_DATA || { categories: [], jobs: [], hot: [] };
   const content = document.getElementById('content');
   const catNav = document.getElementById('catNav');
   const search = document.getElementById('search');
@@ -289,12 +284,16 @@
   const empty = document.getElementById('empty');
   const clearBtn = document.getElementById('clearBtn');
 
-  let totalPositions = 0;
-  const hotCodes = new Set();
-  data.forEach(cat => (cat.hot || []).forEach(h => hotCodes.add(h.code)));
+  const categories = data.categories || [];
+  const jobsById = {};
+  (data.jobs || []).forEach(j => { jobsById[j.id] = j; });
+  const hotIds = new Set(data.hot || []);
+  // 同一岗位可归属多个分类/分组，所以这里统计的是「归属条目数」，不是岗位数
+  const counts = categories.map(cat => cat.groups.reduce((n, g) => n + g.jobs.length, 0));
+  const totalJobs = (data.jobs || []).length;
+  const totalMemberships = counts.reduce((a, b) => a + b, 0);
 
   /* ---------- 构建分类导航 ---------- */
-  const counts = data.map(cat => cat.groups.reduce((n, g) => n + g.positions.length, 0));
   const mkChip = (cat, name, cnt) => {
     const chip = document.createElement('a');
     chip.className = 'cat-chip' + (cat === -1 ? ' all' : '');
@@ -313,14 +312,11 @@
     });
     catNav.appendChild(chip);
   };
-  mkChip(-1, '全部岗位', counts.reduce((a, b) => a + b, 0));
-  data.forEach((cat, i) => mkChip(i, cat.name, counts[i]));
+  mkChip(-1, '全部岗位', totalJobs);
+  categories.forEach((cat, i) => mkChip(i, cat.name, counts[i]));
 
   /* ---------- 构建主体 ---------- */
-  data.forEach((cat, i) => {
-    const catPosCount = counts[i];
-    totalPositions += catPosCount;
-
+  categories.forEach((cat, i) => {
     const section = document.createElement('section');
     section.className = 'category';
     section.id = 'cat-' + i;
@@ -328,27 +324,27 @@
 
     const head = document.createElement('div');
     head.className = 'cat-head';
-    head.innerHTML = '<h2>' + esc(cat.name) + '</h2><span class="count">' + cat.groups.length + ' 个分组 · ' + catPosCount + ' 个岗位</span>';
+    head.innerHTML = '<h2>' + esc(cat.name) + '</h2><span class="count">' + cat.groups.length + ' 个分组 · ' + counts[i] + ' 个岗位</span>';
     section.appendChild(head);
 
     cat.groups.forEach(g => {
       const group = document.createElement('div');
       group.className = 'group';
-      group.innerHTML = '<h3>' + esc(g.name) + '（' + g.positions.length + '）</h3>';
+      group.innerHTML = '<h3>' + esc(g.name) + '（' + g.jobs.length + '）</h3>';
       const cards = document.createElement('div');
       cards.className = 'cards';
 
-      g.positions.forEach(p => {
+      g.jobs.forEach(id => {
+        const p = jobsById[id];
+        if (!p) return;
         const card = document.createElement('div');
         card.className = 'card';
         card.dataset.name = p.name;
         card.dataset.duty = p.duty || '';
-        const isHot = hotCodes.has(p.code);
         card.innerHTML =
           '<div class="card-top">' +
             '<span class="name">' + esc(p.name) + '</span>' +
-            (isHot ? '<span class="tag-hot">热门</span>' : '') +
-            '<a href="https://www.zhipin.com' + esc(p.href) + '" target="_blank" rel="noopener">搜索岗位 →</a>' +
+            (hotIds.has(p.id) ? '<span class="tag-hot">热门</span>' : '') +
           '</div>' +
           '<div class="duty">' + esc(p.duty || '') + '</div>';
         cards.appendChild(card);
@@ -363,10 +359,11 @@
 
   /* ---------- 统计 ---------- */
   document.getElementById('stats').innerHTML =
-    '<span><b>' + data.length + '</b> 一级分类</span>' +
-    '<span><b>' + hotCodes.size + '</b> 热门岗位</span>' +
-    '<span><b>' + totalPositions + '</b> 岗位条目</span>';
-  document.getElementById('footTotal').textContent = totalPositions;
+    '<span><b>' + categories.length + '</b> 个行业</span>' +
+    '<span><b>' + totalJobs + '</b> 个岗位</span>' +
+    '<span><b>' + totalMemberships + '</b> 条分类归属</span>';
+  document.getElementById('footTotal').textContent = totalJobs;
+  document.getElementById('footMemberships').textContent = totalMemberships;
 
   /* ---------- 视图状态与渲染 ---------- */
   const chips = catNav.querySelectorAll('.cat-chip');

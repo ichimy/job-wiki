@@ -1,5 +1,4 @@
-// 构建产物：由 scripts/build-data.py 从 data/jobs.json 生成，请勿手工编辑。
-window.JOB_DATA = {
+{
   "meta": {
     "title": "岗位全景数据集",
     "version": "1.0.0",
@@ -6564,4 +6563,4 @@ window.JOB_DATA = {
     "J0842",
     "J0848"
   ]
-};
+}

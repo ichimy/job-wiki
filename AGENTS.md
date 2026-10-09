@@ -1,41 +1,50 @@
 # Repository Guidelines
 
+## Project Positioning
+
+This project provides a panoramic view of the job landscape: which jobs exist, how they group into industries, and how one job can belong to several industries. It is **not** a job board. Do not add recruiting, application, resume, or outbound job-search links, and do not reintroduce any third-party platform's identifiers, codes, or URLs.
+
 ## Project Structure & Module Organization
 
-This is a dependency-free static site ("职位导航") that lists about 1,098 job positions across 28 categories and links out to zhipin.com searches.
+- `index.html` — the whole view: markup, CSS, and the render/search/nav script.
+- `data/jobs.json` — the single source of truth for all data.
+- `scripts/build-data.py` — regenerates `data.js` from `data/jobs.json`.
+- `data.js` — generated artifact loaded by the browser. Never edit it by hand.
+- `assets/` — brand images.
 
-- `index.html` — the whole UI: markup, CSS, and the render/search/nav script.
-- `data.js` — runtime data bundle defining `window.JOB_DATA`, loaded via `<script src="data.js">`.
-- `categories/NN-名称.json` — per-category source records, numbered `01`–`28` (e.g. `categories/02-互联网-AI.json`).
-- `assets/` — brand images (`logo.svg`, `logo.png`).
-
-Record schema: `{ name, hidden, hot[], groups: [{ name, positions: [{ code, cityCode, name, href, duty }] }] }`. `cityCode` is `101280600`; `hot` entries drive the 热门 badge; `hidden` is currently reserved and unused by `index.html`.
+Dataset: 28 industries, 161 groups, 848 jobs, 1098 category memberships. Job ids are `J0001`-style, categories `C07`, groups `C07-G02`.
 
 ## Build, Test, and Development Commands
 
-There is no build step, bundler, or package manager. Open `index.html` directly, or serve the repository root so relative paths resolve cleanly:
+No package manager or build system is required.
 
 ```sh
-python3 -m http.server 8000   # then visit http://localhost:8000
+python3 -m http.server 8000    # preview at http://localhost:8000
+python3 scripts/build-data.py  # regenerate data.js after editing jobs.json
 ```
 
-Content changes must be applied in both places: `categories/*.json` (source) and `data.js` (runtime bundle). No generator keeps them in sync, so verify counts after editing.
+Always rerun the build script after touching `data/jobs.json`, or the page will render stale data.
+
+## Data Model
+
+`jobs` holds each job once (`id`, `name`, `duty`). `categories[].groups[].jobs` holds arrays of job ids, so a job belonging to several industries is referenced, never duplicated. `hot` is a top-level list of job ids shown with a 热门 badge. Keep new fields on `jobs` entries so the record shape stays uniform.
 
 ## Coding Style & Naming Conventions
 
-- Use 2-space indentation in HTML, JS, and JSON; keep trailing commas in `data.js` to match existing style.
-- Use Chinese display names with ASCII `code` values. Name category files `NN-名称.json` with a zero-padded index.
-- Keep `index.html` dependency-free: vanilla ES5-style JS inside an IIFE, inline CSS using the `--*` custom properties for light/dark theming.
-- Escape dynamic text through the existing `esc()` helper. Build links as `/c<cityCode>-p<code>/`; the render layer prefixes `https://www.zhipin.com`.
+- 2-space indentation in HTML, JS, JSON, and Python.
+- `data/jobs.json` is written with `json.dumps(..., ensure_ascii=False, indent=2)`; keep that formatting so diffs stay readable.
+- Keep `index.html` dependency-free: vanilla ES5-style JS in one IIFE, inline CSS using the `--*` custom properties for theming.
+- Escape all dynamic text through the existing `esc()` helper.
+- Write Chinese for display names and content fields; keep ids and keys ASCII.
 
 ## Testing Guidelines
 
-No automated tests exist. Verify manually in a browser: search matches `name` and `duty`, category chips and scroll-spy highlight correctly, 热门 tags appear, the theme toggle persists via `localStorage`, and the total entry count still matches the `duty` count (1,098).
+No automated test suite. After any data change, verify in the browser: search matches both `name` and `duty`, category chips and scroll-spy highlight correctly, 热门 badges appear, the theme toggle persists, and the header counts match `meta.counts` in `data/jobs.json`. Also confirm the page renders no outbound links.
 
 ## Commit & Pull Request Guidelines
 
-This directory is not a Git repository, so there is no commit history to follow. If version control is added, prefer short imperative subjects with a scope, e.g. `data: 补充 02 互联网/AI 岗位`. Pull requests should list affected categories, report updated counts, and include screenshots for `index.html` changes.
+Prefer short imperative subjects with a scope, e.g. `data: 补充新能源行业岗位`. Pull requests should state which industries or jobs changed, report the updated `meta.counts`, and include a screenshot for any `index.html` change.
 
 ## Security & Configuration Tips
 
-No secrets or config files are needed. External links must keep `target="_blank"` with `rel="noopener"`.
+No secrets or configuration files are needed. Keep the site free of external requests and outbound links to third-party sites.

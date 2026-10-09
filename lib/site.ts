@@ -5,5 +5,5 @@ export const siteDescription =
 
 /** 部署地址，Vercel 上可通过 NEXT_PUBLIC_SITE_URL 覆盖。 */
 export const siteUrl = (
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://jobwiki.vercel.app"
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://job-wiki-jet.vercel.app"
 ).replace(/\/$/, "");

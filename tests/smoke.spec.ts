@@ -45,19 +45,36 @@ test("菜单：一级导航四项，可跳转并高亮当前项", async ({ page 
   );
 });
 
-test("菜单：侧栏筛选，岗位页高亮所属行业与链路", async ({ page }) => {
+test("菜单：侧栏随视图切换，岗位页高亮所属行业与链路", async ({ page }) => {
+  // 总览与协作地图是全景页面，不挂侧栏
   await page.goto("/");
+  await expect(page.getByTestId("sidebar-category")).toHaveCount(0);
+  await expect(page.getByTestId("sidebar-workflow")).toHaveCount(0);
+  await expect(page.getByTestId("sidebar-view-overview")).toHaveCount(0);
+
+  await page.goto("/graph");
+  await expect(page.getByTestId("sidebar-category")).toHaveCount(0);
+  await expect(page.getByTestId("map-canvas")).toBeVisible();
+
+  // 行业视图：侧栏只给行业清单（可筛选）
+  await page.goto("/c/C01");
   const categories = page.getByTestId("sidebar-category");
   await expect(categories).toHaveCount(28);
-  // 一级视图只在顶栏，侧栏不再重复
-  await expect(page.getByTestId("sidebar-view-overview")).toHaveCount(0);
-  await expect(page.getByTestId("sidebar-view-graph")).toHaveCount(0);
-
+  await expect(page.getByTestId("sidebar-workflow")).toHaveCount(0);
   await page.getByTestId("sidebar-category-filter").fill("教育");
   await expect(categories).toHaveCount(1);
   await page.getByTestId("sidebar-category-filter").fill("");
   await expect(categories).toHaveCount(28);
 
+  // 协作链路视图：侧栏只给链路清单
+  await page.goto("/workflow/W01");
+  await expect(page.getByTestId("sidebar-category")).toHaveCount(0);
+  const workflows = page.getByTestId("sidebar-workflow");
+  await expect(workflows).toHaveCount(20);
+  await page.getByTestId("sidebar-workflow-filter").fill("餐饮");
+  await expect(workflows).toHaveCount(1);
+
+  // 岗位页跨视图：两份清单都在，并高亮所属行业与链路
   await page.goto("/job/J0001");
   await expect(
     page.locator('[data-testid="sidebar-category"][data-highlighted="true"]'),

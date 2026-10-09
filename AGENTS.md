@@ -11,6 +11,7 @@ This project provides a panoramic view of the job landscape: which jobs exist, h
 - `lib/nav.ts` — small serializable nav payloads handed to client components.
 - `app/` — App Router pages: `/`, `/c` + `/c/[categoryId]`, `/workflow` + `/workflow/[workflowId]`, `/graph`, `/job/[jobId]`, plus `sitemap.ts`, `robots.ts`, `icon.svg`.
 - `lib/primary-nav.ts` — the four first-level views; the header, the mobile sheet and the ⌘K palette all read this list, so a new view is added in one place.
+- `components/sidebar-nav.tsx` — contextual by view: the industry list on `/c*`, the workflow list on `/workflow*`, both (with highlights) on a job page, and no sidebar at all on `/` and `/graph`. Keep it free of first-level view links so it never duplicates the header.
 - `lib/canvas.ts`, `lib/use-canvas-viewport.ts`, `lib/use-fullscreen.ts` — shared canvas plumbing used by the workflow canvas and the collaboration map.
 - `components/` — page-level pieces; `components/ui/` holds shadcn/ui (Base UI style) primitives. Keep generated primitives close to upstream and put layout choices in the page-level components.
 - `scripts/check-data.mts` — validates `data/jobs.json` and derives `relations` / `meta.counts`.

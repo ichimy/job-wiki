@@ -1,9 +1,33 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "cn";
 import type { NavCategory, NavWorkflow } from "@/lib/nav";
+
+/** 高亮项可能落在滚动区外（岗位页常见），进入页面时把它滚进视野。 */
+function useRevealHighlight(
+  ref: React.RefObject<HTMLAnchorElement | null>,
+  key: string,
+) {
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    // 直接操作列表自己的滚动容器，避免带动整页滚动
+    const container = element.closest(
+      '[data-slot="scroll-area-viewport"], .overflow-y-auto',
+    ) as HTMLElement | null;
+    if (!container) return;
+    const offset =
+      element.getBoundingClientRect().top -
+      container.getBoundingClientRect().top +
+      container.scrollTop;
+    container.scrollTo({
+      top: Math.max(0, offset - container.clientHeight / 2 + element.offsetHeight / 2),
+    });
+  }, [ref, key]);
+}
 
 export function CategoryNavList({
   categories,
@@ -18,14 +42,23 @@ export function CategoryNavList({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
+  const highlightRef = useRef<HTMLAnchorElement | null>(null);
+  const highlightKey = `${pathname}|${(highlightIds ?? []).join(",")}`;
+  useRevealHighlight(highlightRef, highlightKey);
+
+  const firstHighlighted = categories.find((category) =>
+    highlightIds?.includes(category.id),
+  );
   return (
     <ul className="flex flex-col gap-0.5">
       {categories.map((category) => {
         const active = pathname === `/c/${category.id}`;
         const highlighted = highlightIds?.includes(category.id) ?? false;
+        const isRevealTarget = highlighted || (active && !firstHighlighted);
         return (
           <li key={category.id}>
             <Link
+              ref={isRevealTarget ? highlightRef : undefined}
               href={`/c/${category.id}`}
               data-testid={testId}
               data-highlighted={highlighted ? "true" : undefined}
@@ -66,14 +99,23 @@ export function WorkflowNavList({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
+  const highlightRef = useRef<HTMLAnchorElement | null>(null);
+  const highlightKey = `${pathname}|${(highlightIds ?? []).join(",")}`;
+  useRevealHighlight(highlightRef, highlightKey);
+
+  const firstHighlighted = workflows.find((workflow) =>
+    highlightIds?.includes(workflow.id),
+  );
   return (
     <ul className="flex flex-col gap-0.5">
       {workflows.map((workflow) => {
         const active = pathname === `/workflow/${workflow.id}`;
         const highlighted = highlightIds?.includes(workflow.id) ?? false;
+        const isRevealTarget = highlighted || (active && !firstHighlighted);
         return (
           <li key={workflow.id}>
             <Link
+              ref={isRevealTarget ? highlightRef : undefined}
               href={`/workflow/${workflow.id}`}
               data-testid={testId}
               data-highlighted={highlighted ? "true" : undefined}

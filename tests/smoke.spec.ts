@@ -84,6 +84,42 @@ test("菜单：侧栏随视图切换，岗位页高亮所属行业与链路", as
   ).toHaveCount(1);
 });
 
+test("菜单：深行业 / 深链路的岗位，高亮项也要看得见", async ({ page }) => {
+  // J0568 = 平面设计：行业「设计」是第 12 项，链路「品牌营销链路」是第 8 项
+  await page.goto("/job/J0568");
+
+  const current = page.getByTestId("sidebar-current");
+  await expect(current).toBeVisible();
+  await expect(current).toContainText("平面设计");
+  await expect(page.getByTestId("sidebar-current-category")).toHaveText("设计");
+  await expect(page.getByTestId("sidebar-current-workflow")).toHaveText(
+    "品牌营销链路",
+  );
+
+  // 两份清单里的高亮项都要落在各自滚动容器的可视区内
+  const visible = await page.evaluate(() => {
+    const check = (selector: string) => {
+      const item = document.querySelector(selector);
+      if (!item) return null;
+      const container =
+        item.closest('[data-slot="scroll-area-viewport"]') ??
+        item.closest(".overflow-y-auto");
+      if (!container) return null;
+      const itemBox = item.getBoundingClientRect();
+      const containerBox = container.getBoundingClientRect();
+      return (
+        itemBox.top >= containerBox.top - 1 &&
+        itemBox.bottom <= containerBox.bottom + 1
+      );
+    };
+    return {
+      category: check('[data-testid="sidebar-category"][data-highlighted="true"]'),
+      workflow: check('[data-testid="sidebar-workflow"][data-highlighted="true"]'),
+    };
+  });
+  expect(visible).toEqual({ category: true, workflow: true });
+});
+
 test("菜单：⌘K 空状态含四个视图并能跳转", async ({ page }) => {
   await page.goto("/");
   await expect(async () => {

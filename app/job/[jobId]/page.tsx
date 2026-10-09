@@ -143,6 +143,7 @@ export default async function JobPage({
   const primary = memberships[0];
   const counts = getCounts();
   const navTarget = {
+    label: `${job.name}（${job.id}）`,
     categoryIds: memberships.map((membership) => membership.category.id),
     workflowIds: getWorkflowsOfJob(jobId).map((workflow) => workflow.id),
   };

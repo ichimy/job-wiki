@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SearchIcon } from "lucide-react";
 import { cn } from "cn";
@@ -56,8 +57,53 @@ export function SidebarNav({
 
   if (!showCategories && !showWorkflows) return null;
 
+  const currentCategories = (target?.categoryIds ?? [])
+    .map((id) => categories.find((category) => category.id === id))
+    .filter((category): category is NavCategory => Boolean(category));
+  const currentWorkflows = (target?.workflowIds ?? [])
+    .map((id) => workflows.find((workflow) => workflow.id === id))
+    .filter((workflow): workflow is NavWorkflow => Boolean(workflow));
+
   return (
     <aside className="sticky top-14 hidden h-[calc(100svh-3.5rem)] w-56 shrink-0 flex-col gap-2.5 overflow-hidden py-6 lg:flex">
+      {target?.label && (
+        <div
+          className="mx-1 flex flex-col gap-1.5 rounded-xl bg-muted/60 p-2.5"
+          data-testid="sidebar-current"
+        >
+          <p className="text-[0.7rem] text-muted-foreground">当前岗位</p>
+          <p className="text-sm leading-snug font-medium">{target.label}</p>
+          <div className="flex flex-wrap gap-1">
+            {currentCategories.map((category) => (
+              <Link
+                key={category.id}
+                href={`/c/${category.id}`}
+                data-testid="sidebar-current-category"
+                className="rounded-full bg-background px-2 py-0.5 text-[0.7rem] text-muted-foreground ring-1 ring-border transition-colors hover:text-foreground"
+              >
+                {category.name}
+              </Link>
+            ))}
+            {currentWorkflows.length > 0 ? (
+              currentWorkflows.map((workflow) => (
+                <Link
+                  key={workflow.id}
+                  href={`/workflow/${workflow.id}`}
+                  data-testid="sidebar-current-workflow"
+                  className="rounded-full bg-background px-2 py-0.5 text-[0.7rem] text-muted-foreground ring-1 ring-border transition-colors hover:text-foreground"
+                >
+                  {workflow.name}
+                </Link>
+              ))
+            ) : (
+              <span className="text-[0.7rem] text-muted-foreground">
+                未纳入已整理的协作链路
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {showCategories && (
         <>
           <p className="px-2.5 text-xs font-medium tracking-wide text-muted-foreground">

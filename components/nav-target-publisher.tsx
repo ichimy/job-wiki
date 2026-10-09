@@ -11,7 +11,7 @@ import {
 
 /** 页面侧发布当前上下文（岗位页用），侧栏订阅后高亮。 */
 export function NavTargetPublisher({ target }: { target: NavTarget }) {
-  const key = `${target.categoryIds.join(",")}|${target.workflowIds.join(",")}`;
+  const key = `${target.label ?? ""}|${target.categoryIds.join(",")}|${target.workflowIds.join(",")}`;
 
   useEffect(() => {
     setNavTarget(target);

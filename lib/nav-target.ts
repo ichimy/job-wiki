@@ -5,6 +5,8 @@
  * 侧栏在 layout 里、拿不到页面参数，所以用一个极小的订阅式 store 传这一条信息。
  */
 export interface NavTarget {
+  /** 当前岗位名称，用于侧栏顶部的上下文块 */
+  label?: string;
   categoryIds: string[];
   workflowIds: string[];
 }

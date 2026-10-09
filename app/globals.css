@@ -1,0 +1,108 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* 主题用 html[data-theme] 表达，shadcn 的 dark: 变体接到同一套机制上 */
+@custom-variant dark (&:is([data-theme="dark"] *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-hot: var(--hot);
+  --color-hot-soft: var(--hot-soft);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-heading: var(--font-sans);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* 柔和阅读风：暖白纸面 + 靛蓝主色 + 赭石点缀 */
+:root {
+  --background: #faf9f6;
+  --foreground: #1f1d1a;
+  --card: #ffffff;
+  --card-foreground: #1f1d1a;
+  --popover: #ffffff;
+  --popover-foreground: #1f1d1a;
+  --primary: #4c5fd5;
+  --primary-foreground: #ffffff;
+  --secondary: #f1efe9;
+  --secondary-foreground: #1f1d1a;
+  --muted: #f1efe9;
+  --muted-foreground: #6b6459;
+  --accent: #eae7de;
+  --accent-foreground: #1f1d1a;
+  --destructive: #b3261e;
+  --border: #e6e2d9;
+  --input: #e6e2d9;
+  --ring: #4c5fd5;
+  --hot: #b5713f;
+  --hot-soft: #f6ede4;
+  --radius: 0.625rem;
+
+  /* 系统字体栈，不引 webfont */
+  --font-sans: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    "Segoe UI", system-ui, -apple-system, "Helvetica Neue", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+[data-theme="dark"] {
+  --background: #141310;
+  --foreground: #edeae3;
+  --card: #1c1a17;
+  --card-foreground: #edeae3;
+  --popover: #1c1a17;
+  --popover-foreground: #edeae3;
+  --primary: #8e9bf0;
+  --primary-foreground: #14131f;
+  --secondary: #262420;
+  --secondary-foreground: #edeae3;
+  --muted: #232120;
+  --muted-foreground: #a39c90;
+  --accent: #2b2825;
+  --accent-foreground: #edeae3;
+  --destructive: #f07c6c;
+  --border: #2e2b26;
+  --input: #2e2b26;
+  --ring: #8e9bf0;
+  --hot: #d89a66;
+  --hot-soft: #34281e;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--primary) 22%, transparent);
+  }
+}

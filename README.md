@@ -1,6 +1,6 @@
 # 岗位全景（jobWiki）
 
-一份自持的岗位数据集，加一页全景视图，用来回答「行业里有哪些岗位、它们怎么分布、同一个岗位为什么会落在不同行业里」。
+一份自持的岗位数据集，加一个 Next.js 站点，用来回答「行业里有哪些岗位、它们怎么分布、同一个岗位为什么会落在不同行业里」。
 
 数据不依赖任何第三方平台的编码、链接或标识，`data/jobs.json` 是唯一数据源。
 
@@ -19,19 +19,24 @@
 ## 本地预览
 
 ```sh
-python3 -m http.server 8000
-# 打开 http://localhost:8000
+pnpm install
+pnpm dev
+# 打开 http://localhost:3000
 ```
 
 ## 目录结构
 
 ```
-index.html             全景视图：结构 + 样式 + 渲染脚本
+app/                   路由：总览 / 行业 / 岗位 / 协作链路
+components/            页面组件；components/ui 为 shadcn 组件
+lib/data.ts            数据访问层，服务端专用
 data/jobs.json         唯一数据源
-scripts/build-data.py  由 jobs.json 生成 data.js
-data.js                构建产物，供浏览器直接加载，勿手工编辑
-assets/                品牌图标
+scripts/check-data.mts           校验数据并派生 relations / counts
+scripts/build-search-index.mts   生成 public/search-index.json
+public/                静态资源（search-index.json 为生成物，不入库）
 ```
+
+技术栈：Next.js 16（App Router，静态预渲染）+ TypeScript + Tailwind v4 + shadcn/ui。848 个岗位、28 个行业、20 条链路各自成页，全站搜索是 ⌘K 命令面板。
 
 ## 数据格式
 
@@ -61,21 +66,32 @@ assets/                品牌图标
 
 岗位只在 `jobs` 里存一份，分类与分组通过 id 引用，因此跨行业归属不会产生重复记录。
 
-`workflows` 是手工维护的，`relations` 由构建脚本从链路的相邻阶段派生后写回，**不要手工编辑 `relations`**。
+`workflows` 是手工维护的，`relations` 由 `pnpm data:sync` 从链路的相邻阶段派生后写回，**不要手工编辑 `relations`**。
+
+## 常用命令
+
+```sh
+pnpm data:check    # 校验 id、引用、阶段归属，并断言 relations 与 meta.counts
+pnpm data:sync     # 改完 workflows 后重写 relations 与 counts
+pnpm lint          # eslint
+pnpm typecheck     # tsc --noEmit
+pnpm build         # 生产构建
+pnpm test:e2e      # Playwright 冒烟测试（自动构建并启动）
+```
 
 ## 协作视图
 
-点击任意岗位卡片会打开详情面板，显示它的所属行业与分组、在协作链路中的位置、上游（谁的产出交给它）、下游（它的产出交给谁）以及同组岗位。面板里的岗位名可继续点击跳转。
+点击任意岗位卡片进入岗位页，显示它的所属行业与分组、在协作链路中的位置、上游（谁的产出交给它）、下游（它的产出交给谁）以及同组岗位。页面里的岗位名可继续点击跳转。
 
-面板支持深链接，例如 `index.html#job=J0001` 直接打开「Java」的协作详情。
+路由：总览 `/`、行业 `/c/C01`、岗位 `/job/J0001`、协作链路 `/workflow/W01`。
 
 ## 改数据
 
 1. 编辑 `data/jobs.json`
-2. 运行 `python3 scripts/build-data.py` 重新生成 `data.js`
-3. 本地打开页面，确认统计数字与内容正常
+2. 改过 `workflows` 就跑 `pnpm data:sync`，否则跑 `pnpm data:check` 确认数据一致
+3. `pnpm dev` 打开页面，确认统计数字与内容正常
 
-脚本会同时校验数据：分类引用、链路阶段、岗位 id 是否存在，并把 `relations` 重新派生一次。
+脚本会校验：分类引用、链路阶段、岗位 id、一个岗位在单条链路只出现一个阶段，并把 `relations` 与 `meta.counts` 重算一遍。
 
 ## 参与贡献
 

@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { WorkflowPipeline } from "@/components/workflow-pipeline";
+import { WorkflowCanvas } from "@/components/workflow-canvas";
 import {
   getStageJobs,
   getWorkflow,
@@ -108,7 +108,7 @@ export default async function WorkflowPage({
 
       <Separator />
 
-      <WorkflowPipeline
+      <WorkflowCanvas
         stages={workflow.stages.map((stage) => ({
           id: stage.id,
           name: stage.name,

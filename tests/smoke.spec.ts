@@ -47,44 +47,101 @@ test("链路页：W01 的 6 个阶段按顺序排列", async ({ page }) => {
   await expect(page.getByTestId("workflow-handoff")).toHaveCount(5);
 });
 
-test("链路页：交付流可播放，交接口可展开「谁交给谁」", async ({ page }) => {
+test("链路页：文本层给出阶段与交付关系，点画布才展开岗位", async ({ page }) => {
   await page.goto("/workflow/W01");
 
-  await page.getByTestId("pipeline-play").click();
-  await expect(page.getByTestId("workflow-pip")).toHaveCount(5);
+  // 文本层（供读屏/检索）始终可读，浅层视图本身不铺岗位文字
+  await expect(page.getByTestId("workflow-stage")).toHaveCount(6);
+  await expect(page.getByTestId("workflow-handoff")).toHaveCount(5);
+  await expect(page.getByTestId("workflow-handoff").nth(2)).toContainText(
+    "12 条交付关系",
+  );
+  await expect(page.getByTestId("stage-detail")).toHaveCount(0);
 
-  const toggle = page.getByTestId("handoff-toggle").nth(2);
-  await toggle.click();
-  const detail = page.getByTestId("handoff-detail");
-  await expect(detail).toBeVisible();
-  await expect(detail).toContainText("研发实现 → 测试验证");
-  await expect(detail).toContainText("12 条交付关系");
-  await expect(detail).toContainText("测试工程师");
-
-  // 再点一次收起
-  await toggle.click();
-  await expect(detail).toHaveCount(0);
+  const play = page.getByTestId("pipeline-play");
+  await expect(play).toContainText("暂停交付流");
+  await play.click();
+  await expect(play).toContainText("播放交付流");
 });
 
-test("链路页：默认只给核心节点，点阶段才展开岗位", async ({ page }) => {
+test("链路页画布：可缩放、点节点出明细", async ({ page }) => {
   await page.goto("/workflow/W01");
 
-  // 浅层视图不铺岗位文字
-  await expect(page.getByTestId("stage-detail")).toHaveCount(0);
-  await expect(page.getByTestId("workflow-stage").nth(2)).toContainText(
-    "4 岗位",
-  );
+  const canvas = page.getByTestId("workflow-canvas");
+  await expect(canvas).toBeVisible();
+  const box = await canvas.boundingBox();
+  expect(box).not.toBeNull();
+  if (!box) return;
 
-  await page.getByTestId("workflow-stage").nth(2).click();
+  type Debug = {
+    nodes: Record<string, { x: number; y: number }>;
+    jobs: Record<string, { x: number; y: number }>;
+    handoffs: Record<string, { x: number; y: number }>;
+    zoom: number;
+  };
+  const readDebug = () =>
+    page.evaluate(
+      () =>
+        (window as unknown as { __workflowCanvasDebug?: Debug })
+          .__workflowCanvasDebug ?? null,
+    );
+
+  // 画布首帧渲染完成后才会写出节点坐标
+  await expect
+    .poll(async () => Object.keys((await readDebug())?.nodes ?? {}).length)
+    .toBeGreaterThan(0);
+
+  // 点画布上的第一个阶段节点（坐标由画布自己给出）
+  const debug = await readDebug();
+  expect(debug).not.toBeNull();
+  const firstStage = Object.values(debug?.nodes ?? {})[0];
+  expect(firstStage).toBeTruthy();
+  await page.mouse.click(box.x + firstStage.x, box.y + firstStage.y);
   const stageDetail = page.getByTestId("stage-detail");
   await expect(stageDetail).toBeVisible();
-  await expect(stageDetail).toContainText("研发实现");
-  await expect(stageDetail).toContainText("Java");
+  await expect(stageDetail).toContainText("需求与产品定义");
 
-  // 点交接口会从「阶段明细」切到「交付明细」
-  await page.getByTestId("handoff-toggle").nth(2).click();
-  await expect(page.getByTestId("handoff-detail")).toBeVisible();
+  // 点交付曲线：展开「谁交给谁」
+  const handoff = (await readDebug())?.handoffs["2"];
+  expect(handoff).toBeDefined();
+  if (!handoff) return;
+  await page.mouse.click(box.x + handoff.x, box.y + handoff.y);
+  const handoffDetail = page.getByTestId("handoff-detail");
+  await expect(handoffDetail).toBeVisible();
+  await expect(handoffDetail).toContainText("研发实现 → 测试验证");
+  await expect(handoffDetail).toContainText("12 条交付关系");
   await expect(stageDetail).toHaveCount(0);
+
+  // 放大后可以看到岗位节点，点岗位出职责与上下游
+  const before = Number(await canvas.getAttribute("data-zoom"));
+  await page.getByTestId("canvas-zoom-in").click();
+  await page.getByTestId("canvas-zoom-in").click();
+  await page.waitForTimeout(300);
+  const after = Number(await canvas.getAttribute("data-zoom"));
+  expect(after).toBeGreaterThan(before);
+
+  const zoomed = await readDebug();
+  // 放大后部分节点会移出画布，挑一个还在可见区域里的岗位
+  const visibleJob = Object.values(zoomed?.jobs ?? {}).find(
+    (node) =>
+      node.x > 12 &&
+      node.x < box.width - 12 &&
+      node.y > 12 &&
+      node.y < box.height - 12,
+  );
+  expect(visibleJob).toBeTruthy();
+  if (!visibleJob) return;
+  await page.mouse.click(box.x + visibleJob.x, box.y + visibleJob.y);
+  const jobDetail = page.getByTestId("job-detail");
+  await expect(jobDetail).toBeVisible();
+  await expect(jobDetail).toContainText(/上游|下游/);
+
+  // 适应画布把缩放拉回初始值
+  await page.getByTestId("canvas-fit").click();
+  await page.waitForTimeout(200);
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-zoom")))
+    .toBeLessThanOrEqual(after);
 });
 
 test("⌘K 搜岗位并跳转", async ({ page }) => {

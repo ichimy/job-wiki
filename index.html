@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>职位导航 · 1098 个岗位条目</title>
+<script>
+  (function () {
+    var t = null;
+    try { t = localStorage.getItem('job-explorer-theme'); } catch (e) {}
+    if (t !== 'dark' && t !== 'light') {
+      t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    document.documentElement.dataset.theme = t;
+  })();
+</script>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --border: #e8eaee;
+    --card-hover-border: #c3ceea;
+    --text: #1f2329;
+    --text-2: #646a73;
+    --text-3: #8f959e;
+    --accent: #3370ff;
+    --accent-soft: #eaf1ff;
+    --hot: #ff7d00;
+    --hot-soft: #fff3e6;
+    --bar-bg: rgba(255, 255, 255, .92);
+    --clear-bg: #d5d9e0;
+    --clear-bg-hover: #8f959e;
+    color-scheme: light;
+  }
+  :root[data-theme="dark"] {
+    --bg: #141519;
+    --card: #1d1f24;
+    --border: #2b2e35;
+    --card-hover-border: #3a3f4a;
+    --text: #e6e8ec;
+    --text-2: #a3a8b3;
+    --text-3: #6b7280;
+    --accent: #5c8dff;
+    --accent-soft: rgba(92, 141, 255, .16);
+    --hot: #ffa640;
+    --hot-soft: rgba(255, 141, 26, .16);
+    --bar-bg: rgba(20, 21, 25, .9);
+    --clear-bg: #454a55;
+    --clear-bg-hover: #6b7280;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 118px; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+
+  /* ===== 顶栏 ===== */
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    background: var(--bar-bg);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-inner {
+    max-width: 1200px; margin: 0 auto;
+    padding: 14px 24px 10px;
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  }
+  .brand h1 { font-size: 19px; font-weight: 600; letter-spacing: .5px; }
+  .brand .sub { font-size: 12px; color: var(--text-3); margin-top: 1px; }
+  .stats { display: flex; gap: 14px; font-size: 13px; color: var(--text-2); }
+  .stats b { color: var(--accent); font-weight: 600; }
+  .search-wrap { margin-left: auto; position: relative; }
+  .search-wrap input {
+    width: 280px; height: 36px; padding: 0 34px 0 34px;
+    border: 1px solid var(--border); border-radius: 18px;
+    background: var(--bg); font-size: 13.5px; color: var(--text);
+    outline: none; transition: border-color .15s, background .15s, width .2s;
+  }
+  .search-wrap input:focus { border-color: var(--accent); background: var(--card); width: 340px; }
+  .search-wrap .icon {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    color: var(--text-3); font-size: 14px; pointer-events: none;
+  }
+  .search-wrap .clear {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    width: 18px; height: 18px; border: none; border-radius: 50%;
+    background: var(--clear-bg); color: #fff; font-size: 11px; line-height: 18px;
+    cursor: pointer; display: none;
+  }
+  .search-wrap .clear:hover { background: var(--clear-bg-hover); }
+  .search-wrap.has-value .clear { display: block; }
+  .theme-btn {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 1px solid var(--border); background: var(--card);
+    color: var(--text-2); cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: border-color .15s, color .15s;
+  }
+  .theme-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .theme-btn svg { display: block; }
+  .theme-btn .icon-sun { display: none; }
+  :root[data-theme="dark"] .theme-btn .icon-sun { display: block; }
+  :root[data-theme="dark"] .theme-btn .icon-moon { display: none; }
+
+  /* ===== 布局：左侧分类栏 + 右侧内容 ===== */
+  .layout {
+    max-width: 1400px; margin: 0 auto;
+    padding: 24px 24px 0;
+    display: flex; gap: 28px; align-items: flex-start;
+  }
+  .cat-nav {
+    position: sticky; top: 76px; z-index: 19;
+    width: 208px; flex-shrink: 0;
+  }
+  .cat-nav-inner {
+    position: relative;
+    display: flex; flex-direction: column; gap: 2px;
+    max-height: calc(100vh - 96px); overflow-y: auto;
+    padding: 4px; margin: -4px;
+    scrollbar-width: none;
+  }
+  .cat-nav-inner::-webkit-scrollbar { display: none; }
+  .cat-chip {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 12px; border-radius: 8px;
+    background: transparent;
+    font-size: 13px; color: var(--text-2); cursor: pointer;
+    transition: background .15s, color .15s; text-decoration: none; white-space: nowrap;
+  }
+  .cat-chip:hover { background: var(--accent-soft); color: var(--accent); }
+  .cat-chip.active { background: var(--accent); color: #fff; }
+  .cat-chip .cnt {
+    margin-left: auto; font-size: 11px; line-height: 1;
+    color: var(--text-3); font-variant-numeric: tabular-nums;
+  }
+  .cat-chip.active .cnt { color: rgba(255,255,255,.75); }
+  .cat-chip.all { margin-bottom: 4px; position: relative; }
+  .cat-chip.all::after {
+    content: ""; position: absolute; left: 12px; right: 12px; bottom: -3px;
+    height: 1px; background: var(--border);
+  }
+
+  /* ===== 主体 ===== */
+  main { flex: 1; min-width: 0; min-height: 60vh; }
+  .search-tip {
+    display: none; margin: 4px 0 16px; font-size: 13px; color: var(--text-2);
+  }
+  .search-tip b { color: var(--accent); }
+
+  .category { margin-bottom: 36px; }
+  .cat-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
+  .cat-head h2 { font-size: 20px; font-weight: 600; }
+  .cat-head .count { font-size: 12.5px; color: var(--text-3); }
+  .cat-head::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+  .group { margin-bottom: 20px; }
+  .group h3 {
+    font-size: 14px; font-weight: 600; color: var(--text-2);
+    margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
+  }
+  .group h3::before {
+    content: ""; width: 3px; height: 13px; border-radius: 2px; background: var(--accent);
+  }
+  .cards {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 10px;
+  }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px;
+    transition: border-color .15s, transform .18s, box-shadow .18s;
+  }
+  .card:hover {
+    border-color: var(--card-hover-border);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(31, 35, 41, .08);
+  }
+  :root[data-theme="dark"] .card:hover { box-shadow: 0 6px 16px rgba(0, 0, 0, .4); }
+  .card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .card-top .name { font-size: 14.5px; font-weight: 600; transition: color .15s; }
+  .card:hover .card-top .name { color: var(--accent); }
+  .tag-hot {
+    font-size: 10.5px; color: var(--hot); background: var(--hot-soft);
+    padding: 1px 7px; border-radius: 9px; flex-shrink: 0;
+  }
+  .card-top a {
+    margin-left: auto; font-size: 11.5px; color: var(--accent);
+    text-decoration: none; opacity: 0; transition: opacity .15s; flex-shrink: 0;
+  }
+  .card:hover .card-top a, .card:focus-within .card-top a { opacity: 1; }
+  .card .duty { font-size: 12.8px; color: var(--text-2); line-height: 1.7; }
+
+  .empty {
+    display: none; text-align: center; padding: 80px 0; color: var(--text-3); font-size: 14px;
+  }
+  .empty.show { display: block; }
+
+  footer {
+    text-align: center; padding: 30px 0 40px;
+    font-size: 12px; color: var(--text-3);
+  }
+
+  /* 窄屏：侧栏回退为顶部横向滚动条 */
+  @media (max-width: 960px) {
+    .layout { display: block; padding: 0; }
+    main { padding: 16px; min-height: auto; }
+    .cat-nav {
+      position: sticky; top: var(--topbar-h, 61px); width: auto;
+      background: var(--bar-bg);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+    }
+    .cat-nav-inner {
+      flex-direction: row; max-height: none;
+      padding: 8px 16px; margin: 0;
+      overflow-x: auto; overflow-y: hidden;
+    }
+    .cat-chip {
+      flex-shrink: 0; padding: 5px 14px; border-radius: 15px;
+      border: 1px solid var(--border); background: var(--card);
+      font-size: 12.5px;
+    }
+    .cat-chip:hover { background: var(--card); color: var(--accent); }
+    .cat-chip .cnt { display: none; }
+    .cat-chip.all::after { display: none; }
+  }
+  @media (min-width: 961px) {
+    html { scroll-padding-top: 84px; }
+  }
+
+  @media (max-width: 640px) {
+    .search-wrap { margin-left: 0; width: 100%; }
+    .search-wrap input, .search-wrap input:focus { width: 100%; }
+    .stats { display: none; }
+    .cards { grid-template-columns: 1fr; }
+    html { scroll-padding-top: calc(var(--topbar-h, 61px) + 50px); }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <h1>职位导航</h1>
+      <div class="sub">数据来源：BOSS直聘职位菜单（深圳 c101280600）</div>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="search-wrap" id="searchWrap">
+      <span class="icon">🔍</span>
+      <input type="text" id="search" placeholder="搜索岗位名称或职责…" autocomplete="off">
+      <button class="clear" id="clearBtn" title="清空">✕</button>
+    </div>
+    <button class="theme-btn" id="themeBtn" title="切换深浅色模式" aria-label="切换深浅色模式">
+      <svg class="icon-moon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      <svg class="icon-sun" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="cat-nav">
+    <div class="cat-nav-inner" id="catNav"></div>
+  </nav>
+
+  <main>
+    <div class="search-tip" id="searchTip"></div>
+    <div id="content"></div>
+    <div class="empty" id="empty">没有找到匹配的岗位，换个关键词试试</div>
+  </main>
+</div>
+
+<footer>共 <span id="footTotal"></span> 个岗位条目 · job-menu.json 结构化数据</footer>
+
+<script src="data.js"></script>
+<script>
+(function () {
+  const data = window.JOB_DATA || [];
+  const content = document.getElementById('content');
+  const catNav = document.getElementById('catNav');
+  const search = document.getElementById('search');
+  const searchWrap = document.getElementById('searchWrap');
+  const searchTip = document.getElementById('searchTip');
+  const empty = document.getElementById('empty');
+  const clearBtn = document.getElementById('clearBtn');
+
+  let totalPositions = 0;
+  const hotCodes = new Set();
+  data.forEach(cat => (cat.hot || []).forEach(h => hotCodes.add(h.code)));
+
+  /* ---------- 构建分类导航 ---------- */
+  const counts = data.map(cat => cat.groups.reduce((n, g) => n + g.positions.length, 0));
+  const mkChip = (cat, name, cnt) => {
+    const chip = document.createElement('a');
+    chip.className = 'cat-chip' + (cat === -1 ? ' all' : '');
+    chip.href = cat === -1 ? '#all' : '#cat-' + cat;
+    chip.dataset.cat = cat;
+    chip.innerHTML = '<span>' + esc(name) + '</span><span class="cnt">' + cnt + '</span>';
+    chip.addEventListener('click', function (e) {
+      e.preventDefault();
+      activeCat = cat;
+      // 瞬时回到顶部：内联覆盖 html 的 scroll-behavior:smooth，避免长距离滚动动画
+      var root = document.documentElement;
+      root.style.scrollBehavior = 'auto';
+      window.scrollTo(0, 0);
+      requestAnimationFrame(function () { root.style.scrollBehavior = ''; });
+      render();
+    });
+    catNav.appendChild(chip);
+  };
+  mkChip(-1, '全部岗位', counts.reduce((a, b) => a + b, 0));
+  data.forEach((cat, i) => mkChip(i, cat.name, counts[i]));
+
+  /* ---------- 构建主体 ---------- */
+  data.forEach((cat, i) => {
+    const catPosCount = counts[i];
+    totalPositions += catPosCount;
+
+    const section = document.createElement('section');
+    section.className = 'category';
+    section.id = 'cat-' + i;
+    section.dataset.cat = cat.name;
+
+    const head = document.createElement('div');
+    head.className = 'cat-head';
+    head.innerHTML = '<h2>' + esc(cat.name) + '</h2><span class="count">' + cat.groups.length + ' 个分组 · ' + catPosCount + ' 个岗位</span>';
+    section.appendChild(head);
+
+    cat.groups.forEach(g => {
+      const group = document.createElement('div');
+      group.className = 'group';
+      group.innerHTML = '<h3>' + esc(g.name) + '（' + g.positions.length + '）</h3>';
+      const cards = document.createElement('div');
+      cards.className = 'cards';
+
+      g.positions.forEach(p => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.dataset.name = p.name;
+        card.dataset.duty = p.duty || '';
+        const isHot = hotCodes.has(p.code);
+        card.innerHTML =
+          '<div class="card-top">' +
+            '<span class="name">' + esc(p.name) + '</span>' +
+            (isHot ? '<span class="tag-hot">热门</span>' : '') +
+            '<a href="https://www.zhipin.com' + esc(p.href) + '" target="_blank" rel="noopener">搜索岗位 →</a>' +
+          '</div>' +
+          '<div class="duty">' + esc(p.duty || '') + '</div>';
+        cards.appendChild(card);
+      });
+
+      group.appendChild(cards);
+      section.appendChild(group);
+    });
+
+    content.appendChild(section);
+  });
+
+  /* ---------- 统计 ---------- */
+  document.getElementById('stats').innerHTML =
+    '<span><b>' + data.length + '</b> 一级分类</span>' +
+    '<span><b>' + hotCodes.size + '</b> 热门岗位</span>' +
+    '<span><b>' + totalPositions + '</b> 岗位条目</span>';
+  document.getElementById('footTotal').textContent = totalPositions;
+
+  /* ---------- 视图状态与渲染 ---------- */
+  const chips = catNav.querySelectorAll('.cat-chip');
+  const sections = document.querySelectorAll('.category');
+  let activeCat = -1; // -1 = 全部分类
+
+  function render() {
+    const q = search.value.trim().toLowerCase();
+    searchWrap.classList.toggle('has-value', !!q);
+    let hits = 0;
+
+    sections.forEach((section, si) => {
+      const inCat = activeCat === -1 || si === activeCat;
+      let catHits = 0;
+      section.querySelectorAll('.group').forEach(group => {
+        let gHits = 0;
+        group.querySelectorAll('.card').forEach(card => {
+          const ok = inCat && (!q || card.dataset.name.toLowerCase().includes(q) || card.dataset.duty.toLowerCase().includes(q));
+          card.style.display = ok ? '' : 'none';
+          if (ok) gHits++;
+        });
+        group.style.display = gHits ? '' : 'none';
+        catHits += gHits;
+      });
+      section.style.display = catHits ? '' : 'none';
+      hits += catHits;
+    });
+
+    if (q) {
+      searchTip.style.display = 'block';
+      searchTip.innerHTML = '搜索「<b>' + esc(search.value.trim()) + '</b>」，找到 <b>' + hits + '</b> 个岗位';
+    } else {
+      searchTip.style.display = 'none';
+    }
+    empty.classList.toggle('show', hits === 0);
+    refreshNav();
+  }
+
+  function refreshNav() {
+    let spyIdx = -1;
+    if (activeCat === -1 && !search.value.trim()) {
+      const top = window.innerWidth >= 961 ? 100 : 130;
+      sections.forEach((s, i) => { if (s.getBoundingClientRect().top <= top) spyIdx = i; });
+    }
+    const current = activeCat !== -1 ? activeCat : spyIdx;
+    chips.forEach(c => c.classList.toggle('active', Number(c.dataset.cat) === current));
+    const cur = catNav.querySelector('.cat-chip.active');
+    if (!cur) return;
+    if (catNav.scrollHeight > catNav.clientHeight + 4) {
+      catNav.scrollTo({ top: cur.offsetTop - catNav.clientHeight / 2 + cur.offsetHeight / 2, behavior: 'smooth' });
+    } else if (catNav.scrollWidth > catNav.clientWidth + 4) {
+      catNav.scrollTo({ left: cur.offsetLeft - catNav.clientWidth / 2 + cur.offsetWidth / 2, behavior: 'smooth' });
+    }
+  }
+
+  search.addEventListener('input', render);
+  clearBtn.addEventListener('click', function () {
+    search.value = '';
+    render();
+    search.focus();
+  });
+
+  /* ---------- 深浅色切换 ---------- */
+  document.getElementById('themeBtn').addEventListener('click', function () {
+    var next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem('job-explorer-theme', next); } catch (e) {}
+  });
+
+  /* ---------- 顶栏高度同步（窄屏顶栏换行时导航吸顶位置跟随） ---------- */
+  var topbar = document.querySelector('.topbar');
+  function syncTopbarH() {
+    document.documentElement.style.setProperty('--topbar-h', topbar.offsetHeight + 'px');
+  }
+  window.addEventListener('resize', syncTopbarH, { passive: true });
+  syncTopbarH();
+
+  window.addEventListener('scroll', refreshNav, { passive: true });
+  render();
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (m) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+    });
+  }
+})();
+</script>
+</body>
+</html>

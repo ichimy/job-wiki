@@ -73,13 +73,14 @@ interface EdgeGeometry {
 
 const STAGE_W = 208;
 const STAGE_H = 74;
-const GAP_X = 132;
-const GAP_Y = 196;
+const GAP_X = 112;
+const GAP_Y = 300;
 const JOB_SPREAD = 96;
 const JOB_R = 6;
 const JOB_LABEL_MIN_SCALE = 1.05;
-const JOB_DOT_MIN_SCALE = 1;
-const PADDING = 56;
+/** 三栏布局下画布更窄，适应画布的缩放更小，岗位节点不宜要求过高的放大倍数 */
+const JOB_DOT_MIN_SCALE = 0.8;
+const PADDING = 40;
 
 /** 世界坐标布局：第一行从左到右，第二行从右到左，形成蛇形主链。 */
 function computeLayout(stages: PipelineStage[]) {
@@ -139,9 +140,12 @@ function edgeGeometry(a: StageRect, b: StageRect): EdgeGeometry {
 export function WorkflowCanvas({
   stages,
   handoffCounts,
+  header,
 }: {
   stages: PipelineStage[];
   handoffCounts: number[];
+  /** 页面标题区（标题、副标题、相关行业标签），放在右栏顶部 */
+  header?: React.ReactNode;
 }) {
   const [selection, setSelection] = useState<Selection>(null);
   const [hover, setHover] = useState<Selection>(null);
@@ -178,10 +182,10 @@ export function WorkflowCanvas({
     const xs = layout.stageRects.map((rect) => rect.x);
     const ys = layout.stageRects.map((rect) => rect.y);
     return {
-      minX: Math.min(...xs) - 140,
-      maxX: Math.max(...xs) + STAGE_W + 140,
+      minX: Math.min(...xs) - 80,
+      maxX: Math.max(...xs) + STAGE_W + 80,
       minY: Math.min(...ys),
-      maxY: Math.max(...ys) + STAGE_H + 70,
+      maxY: Math.max(...ys) + STAGE_H + 60,
     };
   };
 
@@ -473,7 +477,8 @@ export function WorkflowCanvas({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* 画布占满这一栏：控制条挪到画布下方，与明细同区 */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
+      {/* 中栏：画布铺满整栏高度 */}
       <div
         ref={containerRef}
         data-fullscreen={fullscreen.isFullscreen ? "true" : "false"}
@@ -481,7 +486,7 @@ export function WorkflowCanvas({
           "relative overflow-hidden rounded-xl bg-background ring-1 ring-border/70",
           fullscreen.isFullscreen
             ? "h-screen w-screen p-6 ring-0"
-            : "h-[400px] lg:h-[calc(100svh-19rem)] lg:min-h-[460px]",
+            : "h-[400px] lg:h-[calc(100svh-9rem)] lg:min-h-[520px]",
         )}
       >
         <canvas
@@ -498,132 +503,136 @@ export function WorkflowCanvas({
         />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => setFlowing((value) => !value)}
-          data-testid="pipeline-play"
-          className="gap-1.5"
-        >
-          {flowing ? <PauseIcon className="size-3.5" /> : <PlayIcon className="size-3.5" />}
-          {flowing ? "暂停交付流" : "播放交付流"}
-        </Button>
-        <Button
-          size="icon-sm"
-          variant="outline"
-          aria-label="缩小"
-          data-testid="canvas-zoom-out"
-          onClick={() => zoomBy(0.8)}
-        >
-          <MinusIcon className="size-3.5" />
-        </Button>
-        <Button
-          size="icon-sm"
-          variant="outline"
-          aria-label="放大"
-          data-testid="canvas-zoom-in"
-          onClick={() => zoomBy(1.25)}
-        >
-          <PlusIcon className="size-3.5" />
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-1.5"
-          data-testid="canvas-fit"
-          onClick={fit}
-        >
-          <Maximize2Icon className="size-3.5" />
-          适应画布
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-1.5"
-          data-testid="canvas-fullscreen"
-          data-fullscreen={fullscreen.isFullscreen ? "true" : "false"}
-          onClick={fullscreen.toggle}
-        >
-          {fullscreen.isFullscreen ? (
-            <Minimize2Icon className="size-3.5" />
-          ) : (
+      {/* 右栏：控制条 + 明细 */}
+      <aside className="flex flex-col gap-3">
+        {header}
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setFlowing((value) => !value)}
+            data-testid="pipeline-play"
+            className="gap-1.5"
+          >
+            {flowing ? (
+              <PauseIcon className="size-3.5" />
+            ) : (
+              <PlayIcon className="size-3.5" />
+            )}
+            {flowing ? "暂停交付流" : "播放交付流"}
+          </Button>
+          <Button
+            size="icon-sm"
+            variant="outline"
+            aria-label="缩小"
+            data-testid="canvas-zoom-out"
+            onClick={() => zoomBy(0.8)}
+          >
+            <MinusIcon className="size-3.5" />
+          </Button>
+          <Button
+            size="icon-sm"
+            variant="outline"
+            aria-label="放大"
+            data-testid="canvas-zoom-in"
+            onClick={() => zoomBy(1.25)}
+          >
+            <PlusIcon className="size-3.5" />
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            data-testid="canvas-fit"
+            onClick={fit}
+          >
             <Maximize2Icon className="size-3.5" />
-          )}
-          {fullscreen.isFullscreen ? "退出全屏" : "全屏查看"}
-        </Button>
-        <p className="text-xs text-muted-foreground">
-          拖拽平移 · 滚轮缩放 · 点节点看细节
-        </p>
-      </div>
-
-      {selectedStage && (
-        <Card size="sm" data-testid="stage-detail" className="gap-2">
-          <CardHeader className="gap-1">
-            <div className="flex items-start gap-2">
-              <CardTitle className="text-sm">{selectedStage.name}</CardTitle>
-              <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                {selectedStage.jobs.length} 个岗位
-              </span>
-              <Button
-                size="icon-xs"
-                variant="ghost"
-                className="ml-auto"
-                aria-label="收起岗位"
-                onClick={() => setSelection(null)}
-              >
-                <XIcon />
-              </Button>
-            </div>
-          </CardHeader>
-          <div className="flex flex-wrap gap-1.5 px-3 pb-3">
-            {selectedStage.jobs.map((job) => (
-              <JobChip key={job.id} job={job} />
-            ))}
-          </div>
-        </Card>
-      )}
-
-      {selectedJob && (
-        <Card size="sm" data-testid="job-detail" className="gap-2">
-          <CardHeader className="gap-1">
-            <div className="flex items-start gap-2">
-              <CardTitle className="text-sm">{selectedJob.job.name}</CardTitle>
-              <span className="font-mono text-xs text-muted-foreground">
-                阶段 {String(selectedJob.stageIndex + 1).padStart(2, "0")}
-              </span>
-              <Button
-                size="icon-xs"
-                variant="ghost"
-                className="ml-auto"
-                aria-label="收起岗位"
-                onClick={() => setSelection(null)}
-              >
-                <XIcon />
-              </Button>
-            </div>
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              {selectedJob.job.duty}
-            </p>
-          </CardHeader>
-          <div className="flex flex-col gap-2 px-3 pb-3 text-xs">
-            {selectedJob.stageIndex > 0 && (
-              <p className="text-muted-foreground">
-                上游：
-                {layout.jobNodes[selectedJob.stageIndex - 1]
-                  .map((node) => node.job.name)
-                  .join("、")}
-              </p>
+            适应
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            data-testid="canvas-fullscreen"
+            data-fullscreen={fullscreen.isFullscreen ? "true" : "false"}
+            onClick={fullscreen.toggle}
+          >
+            {fullscreen.isFullscreen ? (
+              <Minimize2Icon className="size-3.5" />
+            ) : (
+              <Maximize2Icon className="size-3.5" />
             )}
-            {selectedJob.stageIndex < stages.length - 1 && (
-              <p className="text-muted-foreground">
-                下游：
-                {layout.jobNodes[selectedJob.stageIndex + 1]
-                  .map((node) => node.job.name)
-                  .join("、")}
+            {fullscreen.isFullscreen ? "退出全屏" : "全屏"}
+          </Button>
+        </div>
+
+        {selectedStage && (
+          <Card size="sm" data-testid="stage-detail" className="gap-2">
+            <CardHeader className="gap-1">
+              <div className="flex items-start gap-2">
+                <CardTitle className="text-sm">{selectedStage.name}</CardTitle>
+                <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                  {selectedStage.jobs.length} 个岗位
+                </span>
+                <Button
+                  size="icon-xs"
+                  variant="ghost"
+                  className="ml-auto"
+                  aria-label="收起岗位"
+                  onClick={() => setSelection(null)}
+                >
+                  <XIcon />
+                </Button>
+              </div>
+            </CardHeader>
+            <div className="flex flex-wrap gap-1.5 px-3 pb-3">
+              {selectedStage.jobs.map((job) => (
+                <JobChip key={job.id} job={job} />
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {selectedJob && (
+          <Card size="sm" data-testid="job-detail" className="gap-2">
+            <CardHeader className="gap-1">
+              <div className="flex items-start gap-2">
+                <CardTitle className="text-sm">{selectedJob.job.name}</CardTitle>
+                <span className="font-mono text-xs text-muted-foreground">
+                  阶段 {String(selectedJob.stageIndex + 1).padStart(2, "0")}
+                </span>
+                <Button
+                  size="icon-xs"
+                  variant="ghost"
+                  className="ml-auto"
+                  aria-label="收起岗位"
+                  onClick={() => setSelection(null)}
+                >
+                  <XIcon />
+                </Button>
+              </div>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                {selectedJob.job.duty}
               </p>
-            )}
-            <div>
+            </CardHeader>
+            <div className="flex flex-col gap-2 px-3 pb-3 text-xs">
+              {selectedJob.stageIndex > 0 && (
+                <p className="text-muted-foreground">
+                  上游：
+                  {layout.jobNodes[selectedJob.stageIndex - 1]
+                    .map((node) => node.job.name)
+                    .join("、")}
+                </p>
+              )}
+              {selectedJob.stageIndex < stages.length - 1 && (
+                <p className="text-muted-foreground">
+                  下游：
+                  {layout.jobNodes[selectedJob.stageIndex + 1]
+                    .map((node) => node.job.name)
+                    .join("、")}
+                </p>
+              )}
               <Button
                 size="sm"
                 variant="outline"
@@ -632,54 +641,51 @@ export function WorkflowCanvas({
                 看岗位详情
               </Button>
             </div>
-          </div>
-        </Card>
-      )}
+          </Card>
+        )}
 
-      {selectedHandoff !== null && (
-        <Card size="sm" data-testid="handoff-detail" className="gap-2">
-          <CardHeader className="gap-1">
-            <div className="flex items-start gap-2">
-              <CardTitle className="text-sm">
-                {stages[selectedHandoff].name} → {stages[selectedHandoff + 1].name}
-              </CardTitle>
-              <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                {handoffCounts[selectedHandoff]} 条交付关系
-              </span>
-              <Button
-                size="icon-xs"
-                variant="ghost"
-                className="ml-auto"
-                aria-label="收起交付明细"
-                onClick={() => setSelection(null)}
-              >
-                <XIcon />
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              上一阶段每个人的产出，交给下一阶段的这几个人。
-            </p>
-          </CardHeader>
-          <div className="grid gap-1.5 px-3 pb-3 sm:grid-cols-2">
-            {stages[selectedHandoff].jobs.map((job) => (
-              <div key={job.id} className="flex items-start gap-1.5 text-xs">
-                <Link
-                  href={`/job/${job.id}`}
-                  className="shrink-0 font-medium hover:underline"
+        {selectedHandoff !== null && (
+          <Card size="sm" data-testid="handoff-detail" className="gap-2">
+            <CardHeader className="gap-1">
+              <div className="flex items-start gap-2">
+                <CardTitle className="text-sm leading-snug">
+                  {stages[selectedHandoff].name} → {stages[selectedHandoff + 1].name}
+                </CardTitle>
+                <Button
+                  size="icon-xs"
+                  variant="ghost"
+                  className="ml-auto"
+                  aria-label="收起交付明细"
+                  onClick={() => setSelection(null)}
                 >
-                  {job.name}
-                </Link>
-                <span className="text-muted-foreground">→</span>
-                <span className="text-muted-foreground">
-                  {stages[selectedHandoff + 1].jobs
-                    .map((target) => target.name)
-                    .join("、")}
-                </span>
+                  <XIcon />
+                </Button>
               </div>
-            ))}
-          </div>
-        </Card>
-      )}
+              <p className="text-xs text-muted-foreground">
+                上一阶段每个人的产出，交给下一阶段的这几个人，共{" "}
+                {handoffCounts[selectedHandoff]} 条交付关系。
+              </p>
+            </CardHeader>
+            <div className="flex flex-col gap-1.5 px-3 pb-3">
+              {stages[selectedHandoff].jobs.map((job) => (
+                <div key={job.id} className="flex flex-col gap-0.5 text-xs">
+                  <Link
+                    href={`/job/${job.id}`}
+                    className="font-medium hover:underline"
+                  >
+                    {job.name}
+                  </Link>
+                  <span className="text-muted-foreground">
+                    → {stages[selectedHandoff + 1].jobs.map((t) => t.name).join("、")}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+      </aside>
+
+      </div>
 
       {/* 画布内容无法被读屏和检索工具读到，这里留一份等价的文本层（键盘也能用） */}
       <div className="sr-only" data-testid="workflow-outline">

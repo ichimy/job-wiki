@@ -255,11 +255,14 @@ test("链路页画布：可缩放、点节点出明细", async ({ page }) => {
   await expect(handoffDetail).toContainText("12 条交付关系");
   await expect(stageDetail).toHaveCount(0);
 
-  // 放大后可以看到岗位节点，点岗位出职责与上下游
+  // 放大到岗位可见（窄画布需要多按几次），点岗位出职责与上下游
   const before = Number(await canvas.getAttribute("data-zoom"));
-  await page.getByTestId("canvas-zoom-in").click();
-  await page.getByTestId("canvas-zoom-in").click();
-  await page.waitForTimeout(300);
+  for (let i = 0; i < 8; i += 1) {
+    await page.getByTestId("canvas-zoom-in").click();
+    await page.waitForTimeout(120);
+    const zoom = (await readDebug())?.zoom ?? 0;
+    if (zoom >= 0.85) break;
+  }
   const after = Number(await canvas.getAttribute("data-zoom"));
   expect(after).toBeGreaterThan(before);
 

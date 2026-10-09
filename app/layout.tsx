@@ -51,7 +51,7 @@ export default function RootLayout({
       <body className="min-h-svh antialiased">
         <TooltipProvider>
           <SiteHeader categories={categories} workflows={workflows} />
-          <div className="mx-auto flex w-full max-w-[1360px] items-start gap-10 px-4 lg:px-8">
+          <div className="mx-auto flex w-full max-w-[1440px] items-start gap-10 px-4 lg:px-8">
             <SidebarNav
               categories={categories}
               workflows={workflows}

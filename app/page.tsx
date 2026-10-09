@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRightIcon } from "lucide-react";
+import { cn } from "cn";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -61,41 +63,105 @@ export default function HomePage() {
     },
   ];
 
-  const entries = [
-    {
-      href: "/c",
-      id: "entry-categories",
-      title: "按行业查岗位",
-      description: `28 个行业、161 个分组，逐组查看岗位名称与职责。`,
-      meta: "行业 → 分组 → 岗位",
-    },
-    {
-      href: "/workflow",
-      id: "entry-workflows",
-      title: "沿链路看协作",
-      description: `20 条链路，每条 4–6 个阶段，标注相邻阶段的交付关系。`,
-      meta: "阶段 → 岗位 → 交付关系",
-    },
-  ];
+
+  const topIndustries = categories.slice(0, 3);
 
   return (
     <div className="flex flex-col gap-14">
-      <section className="flex flex-col gap-7">
-        <div className="flex flex-col gap-4">
-          <h1 className="text-3xl font-medium tracking-tight sm:text-4xl">
-            岗位全景
-          </h1>
-          <p className="max-w-3xl text-base leading-relaxed text-foreground/90">
-            以行业分组为骨架，把 {counts.jobs} 个岗位收进 {counts.categories} 个行业、
-            {counts.groups} 个分组，逐层可查；再用 {counts.workflows} 条协作链路，
-            标明相邻岗位之间的交付顺序。
-          </p>
-          <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-            同一份数据回答两类问题：某个岗位属于哪些行业、和谁是同组；
-            它在一条交付流程里站在哪一段、上游把产出交给谁、它的产出又交给谁。
-          </p>
-        </div>
+      {/* Hero：左侧定位与入口，右侧用真实数据画一张行业分布指纹 */}
+      <section className="relative overflow-hidden rounded-2xl bg-card/70 ring-1 ring-border/70">
+        <div className="dot-grid pointer-events-none absolute inset-0 opacity-70" />
+        <div className="pointer-events-none absolute -top-32 -right-24 size-[420px] rounded-full bg-primary/5 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-40 -left-24 size-[320px] rounded-full bg-hot/5 blur-3xl" />
 
+        <div className="relative grid gap-10 px-6 py-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-center lg:gap-14 lg:px-10 lg:py-14">
+          <div className="flex flex-col">
+            <p className="flex items-center gap-2 text-xs tracking-[0.12em] text-muted-foreground">
+              <span className="size-1.5 rounded-full bg-hot" />
+              岗位全景 · JOBWIKI
+            </p>
+            <h1 className="mt-5 text-4xl leading-[1.15] font-medium tracking-tight sm:text-5xl">
+              看清一个岗位
+              <br />
+              属于哪里，站在哪一段
+            </h1>
+            <p className="mt-5 max-w-xl text-base leading-relaxed text-foreground/90">
+              以行业分组为骨架，把 {counts.jobs} 个岗位收进 {counts.categories}{" "}
+              个行业、{counts.groups} 个分组，逐层可查；再用 {counts.workflows}{" "}
+              条协作链路，标明相邻岗位之间的交付顺序。
+            </p>
+            <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">
+              同一份数据回答两类问题：某个岗位属于哪些行业、和谁是同组；它在一条交付流程里站在哪一段、上游把产出交给谁、它的产出又交给谁。
+            </p>
+            <div className="mt-7 flex flex-wrap items-center gap-3">
+              <Button className="gap-1.5" render={<Link href="/c" />}>
+                按行业查岗位
+                <ArrowRightIcon className="size-3.5" />
+              </Button>
+              <Button variant="outline" render={<Link href="/workflow" />}>
+                沿链路看协作
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                或按 ⌘K 直接搜岗位
+              </span>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-4 rounded-xl bg-background/80 p-5 ring-1 ring-border/70">
+            <div className="flex items-baseline justify-between">
+              <p className="text-xs font-medium tracking-wide text-muted-foreground">
+                行业岗位分布
+              </p>
+              <p className="font-mono text-xs text-muted-foreground tabular-nums">
+                {counts.categories} 个行业
+              </p>
+            </div>
+            <div className="flex h-32 items-end gap-1" aria-hidden="true">
+              {categories.map(({ category, jobCount }, index) => (
+                <div
+                  key={category.id}
+                  title={`${category.name} · ${jobCount} 岗位`}
+                  className={cn(
+                    "flex-1 rounded-t-[3px]",
+                    index < 3 ? "bg-primary" : "bg-primary/25",
+                  )}
+                  style={{
+                    height: `${Math.max(5, Math.round((jobCount / busiest) * 100))}%`,
+                  }}
+                />
+              ))}
+            </div>
+            <div className="flex flex-col gap-1.5 border-t border-border/70 pt-3">
+              {topIndustries.map(({ category, jobCount }, index) => (
+                <div key={category.id} className="flex items-center gap-2 text-xs">
+                  <span
+                    className={cn(
+                      "w-4 shrink-0 text-right font-mono tabular-nums",
+                      index === 0
+                        ? "text-primary"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    {index + 1}
+                  </span>
+                  <span className="truncate">{category.name}</span>
+                  <span className="ml-auto shrink-0 font-mono text-muted-foreground tabular-nums">
+                    {jobCount} 岗位
+                  </span>
+                </div>
+              ))}
+              <p className="pt-1 text-[0.7rem] leading-relaxed text-muted-foreground">
+                条形高度为岗位条目数，按岗位数从多到少排列；跨行业归属会在多个行业重复计入。
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <h2 className="text-sm font-medium tracking-wide text-muted-foreground">
+          数据概况
+        </h2>
         <div
           className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-5"
           data-testid="stat-counts"
@@ -117,35 +183,6 @@ export default function HomePage() {
                 </p>
               </CardHeader>
             </Card>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-          {entries.map((entry) => (
-            <Link
-              key={entry.href}
-              href={entry.href}
-              data-testid={entry.id}
-              className="group"
-            >
-              <Card
-                size="sm"
-                className="h-full gap-2 ring-1 ring-border/70 transition-all group-hover:ring-primary/40"
-              >
-                <CardHeader className="gap-1.5">
-                  <div className="flex items-center gap-2">
-                    <CardTitle className="text-sm">{entry.title}</CardTitle>
-                    <ArrowRightIcon className="ml-auto size-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
-                  </div>
-                  <CardDescription className="text-xs leading-relaxed">
-                    {entry.description}
-                  </CardDescription>
-                  <p className="font-mono text-[0.68rem] text-muted-foreground/80">
-                    {entry.meta}
-                  </p>
-                </CardHeader>
-              </Card>
-            </Link>
           ))}
         </div>
       </section>

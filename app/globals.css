@@ -168,3 +168,9 @@
     animation: none;
   }
 }
+
+/* 大面积容器上的点阵底纹：与链路画布同一种质地 */
+@utility dot-grid {
+  background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+  background-size: 24px 24px;
+}

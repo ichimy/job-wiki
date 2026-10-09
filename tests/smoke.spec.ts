@@ -49,6 +49,9 @@ test("菜单：侧栏筛选，岗位页高亮所属行业与链路", async ({ pa
   await page.goto("/");
   const categories = page.getByTestId("sidebar-category");
   await expect(categories).toHaveCount(28);
+  // 一级视图只在顶栏，侧栏不再重复
+  await expect(page.getByTestId("sidebar-view-overview")).toHaveCount(0);
+  await expect(page.getByTestId("sidebar-view-graph")).toHaveCount(0);
 
   await page.getByTestId("sidebar-category-filter").fill("教育");
   await expect(categories).toHaveCount(1);

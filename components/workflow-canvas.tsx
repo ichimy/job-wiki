@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
+  CircleDotIcon,
   Maximize2Icon,
   Minimize2Icon,
   MinusIcon,
@@ -150,6 +151,8 @@ export function WorkflowCanvas({
   const [selection, setSelection] = useState<Selection>(null);
   const [hover, setHover] = useState<Selection>(null);
   const [flowing, setFlowing] = useState(true);
+  /** 手动展开岗位层：默认视角（缩放不够）也能点到岗位 */
+  const [showJobLayer, setShowJobLayer] = useState(false);
 
   const layout = useMemo(() => computeLayout(stages), [stages]);
   const edges = useMemo(
@@ -166,6 +169,7 @@ export function WorkflowCanvas({
   const hoverRef = useRef<Selection>(null);
   const selectionRef = useRef<Selection>(null);
   const flowingRef = useRef(true);
+  const showJobLayerRef = useRef(false);
   const phaseRef = useRef(0);
 
   useEffect(() => {
@@ -177,6 +181,9 @@ export function WorkflowCanvas({
   useEffect(() => {
     flowingRef.current = flowing;
   }, [flowing]);
+  useEffect(() => {
+    showJobLayerRef.current = showJobLayer;
+  }, [showJobLayer]);
 
   const getBounds = (): CanvasBounds => {
     const xs = layout.stageRects.map((rect) => rect.x);
@@ -202,7 +209,7 @@ export function WorkflowCanvas({
   function hitTest(clientX: number, clientY: number): Selection {
     const { x, y } = toWorld(clientX, clientY);
     const scale = viewRef.current.scale;
-    const showJobs = scale >= JOB_DOT_MIN_SCALE;
+    const showJobs = showJobLayerRef.current || scale >= JOB_DOT_MIN_SCALE;
     const radius = Math.max(JOB_R + 4, 10 / scale);
 
     if (showJobs) {
@@ -281,7 +288,7 @@ export function WorkflowCanvas({
               ? active.index
               : null;
       const activeJobId = active?.kind === "job" ? active.jobId : null;
-      const showJobs = view.scale >= JOB_DOT_MIN_SCALE;
+      const showJobs = showJobLayerRef.current || view.scale >= JOB_DOT_MIN_SCALE;
       const showJobLabels = view.scale >= JOB_LABEL_MIN_SCALE;
 
       // 1. 阶段之间的交付曲线
@@ -412,7 +419,7 @@ export function WorkflowCanvas({
       ctx.font = canvasFont(11);
       ctx.fillText(
         view.scale < JOB_DOT_MIN_SCALE
-          ? "放大可看到每个阶段的岗位"
+          ? "放大可看到每个阶段的岗位，或点右侧「展开岗位」"
           : showJobLabels
             ? "已展开岗位，点岗位看职责与上下游"
             : "继续放大可看到岗位名",
@@ -564,6 +571,17 @@ export function WorkflowCanvas({
               <Maximize2Icon className="size-3.5" />
             )}
             {fullscreen.isFullscreen ? "退出全屏" : "全屏"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            data-testid="canvas-toggle-jobs"
+            aria-pressed={showJobLayer}
+            onClick={() => setShowJobLayer((value) => !value)}
+          >
+            <CircleDotIcon className="size-3.5" />
+            {showJobLayer ? "收起岗位" : "展开岗位"}
           </Button>
         </div>
 

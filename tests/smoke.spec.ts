@@ -295,6 +295,48 @@ test("链路页画布：可缩放、点节点出明细", async ({ page }) => {
     .toBeLessThanOrEqual(after);
 });
 
+test("链路页画布：不放大时也能用「展开岗位」点到岗位", async ({ page }) => {
+  await page.goto("/workflow/W01");
+
+  const canvas = page.getByTestId("workflow-canvas");
+  await expect(canvas).toBeVisible();
+  type Debug = {
+    jobs: Record<string, { x: number; y: number }>;
+    zoom: number;
+  };
+  const readDebug = () =>
+    page.evaluate(
+      () =>
+        (window as unknown as { __workflowCanvasDebug?: Debug })
+          .__workflowCanvasDebug ?? null,
+    );
+  await expect
+    .poll(async () => Object.keys((await readDebug())?.jobs ?? {}).length)
+    .toBeGreaterThan(0);
+
+  const zoom = (await readDebug())?.zoom ?? 0;
+  expect(zoom).toBeLessThan(0.8); // 默认视角本来点不到岗位
+
+  const toggle = page.getByTestId("canvas-toggle-jobs");
+  await expect(toggle).toHaveText(/展开岗位/);
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+
+  const box = await canvas.boundingBox();
+  expect(box).not.toBeNull();
+  if (!box) return;
+  const job = Object.values((await readDebug())?.jobs ?? {})[0];
+  expect(job).toBeTruthy();
+  if (!job) return;
+  await page.mouse.click(box.x + job.x, box.y + job.y);
+  const detail = page.getByTestId("job-detail");
+  await expect(detail).toBeVisible();
+  await expect(detail).toContainText("阶段");
+  await expect(
+    detail.getByRole("link", { name: "看岗位详情" }),
+  ).toHaveAttribute("href", /\/job\/J\d+/);
+});
+
 test("⌘K 搜岗位并跳转", async ({ page }) => {
   await page.goto("/");
 

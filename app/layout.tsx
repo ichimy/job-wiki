@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -62,9 +63,15 @@ export default function RootLayout({
             </main>
           </div>
         </TooltipProvider>
-        {/* Vercel Web Analytics：只在生产注入同源 /_vercel/insights/script.js，
-            本地开发与预览部署不加载，避免任何外部请求。 */}
-        {process.env.VERCEL_ENV === "production" && <Analytics />}
+        {/* Vercel Web Analytics + Speed Insights：只在生产注入同源脚本，
+            本地开发与预览部署不加载（这两个 SDK 在 development 模式会请求
+            va.vercel-scripts.com，本项目的约定是零外部请求）。 */}
+        {process.env.VERCEL_ENV === "production" && (
+          <>
+            <Analytics />
+            <SpeedInsights />
+          </>
+        )}
       </body>
     </html>
   );

@@ -90,7 +90,7 @@ test("全站没有指向第三方的链接", async ({ page }) => {
   }
 });
 
-test("线上：Web Analytics 已接入且不外联", async ({ page }) => {
+test("线上：可观测性脚本已接入且不外联", async ({ page }) => {
   test.skip(!process.env.PLAYWRIGHT_BASE_URL, "只对线上地址运行");
 
   const origin = new URL(process.env.PLAYWRIGHT_BASE_URL!).origin;
@@ -104,24 +104,28 @@ test("线上：Web Analytics 已接入且不外联", async ({ page }) => {
 
   await page.goto("/");
 
-  // 脚本由 @vercel/analytics 在 hydrate 后注入，具体路径由 Vercel 下发的配置决定
-  const script = page.locator('script[data-sdkn^="@vercel/analytics"]');
-  await expect(script).toBeAttached({ timeout: 10_000 });
-  const src = await script.getAttribute("src");
-  expect(src).toBeTruthy();
+  // 脚本由 SDK 在 hydrate 后注入，具体路径由 Vercel 下发的配置决定
+  for (const sdk of ["@vercel/analytics", "@vercel/speed-insights"]) {
+    const script = page.locator(`script[data-sdkn^="${sdk}"]`);
+    await expect(script).toBeAttached({ timeout: 10_000 });
+    const src = await script.getAttribute("src");
+    expect(src).toBeTruthy();
 
-  // 生产部署上这个同源脚本必须真的存在（确认项目已启用 Web Analytics）
-  const status = await page.evaluate(async (url) => {
-    const response = await fetch(url!, { method: "GET" });
-    return response.status;
-  }, src);
-  expect(status).toBe(200);
+    // 生产部署上这个同源脚本必须真的存在（确认项目已启用该功能）
+    const status = await page.evaluate(async (url) => {
+      const response = await fetch(url!, { method: "GET" });
+      return response.status;
+    }, src);
+    expect(status, `${sdk} 脚本应可访问`).toBe(200);
+  }
 
   const sdk = await page.evaluate(() => ({
-    mode: (window as unknown as { vam?: string }).vam,
-    queued: typeof (window as unknown as { va?: unknown }).va,
+    analyticsMode: (window as unknown as { vam?: string }).vam,
+    analyticsQueue: typeof (window as unknown as { va?: unknown }).va,
+    speedInsightsQueue: typeof (window as unknown as { si?: unknown }).si,
   }));
-  expect(sdk.mode).toBe("production");
-  expect(sdk.queued).toBe("function");
+  expect(sdk.analyticsMode).toBe("production");
+  expect(sdk.analyticsQueue).toBe("function");
+  expect(sdk.speedInsightsQueue).toBe("function");
   expect([...thirdParty]).toEqual([]);
 });

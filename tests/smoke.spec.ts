@@ -4,6 +4,7 @@ test("首页：5 个统计、28 个行业入口、20 条链路入口", async ({ 
   await page.goto("/");
 
   await expect(page.getByTestId("stat-value")).toHaveCount(5);
+  await expect(page.getByTestId("graph-link")).toBeVisible();
   for (const value of ["28", "848", "20", "682", "1098"]) {
     await expect(
       page.getByTestId("stat-value").filter({ hasText: new RegExp(`^${value}$`) }),
@@ -162,6 +163,76 @@ test("⌘K 搜岗位并跳转", async ({ page }) => {
 
   await page.waitForURL("**/job/J0001");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Java");
+});
+
+test("协作地图：20 条链路 + 11 个换乘岗位，点岗位看它挂在哪几条链路", async ({
+  page,
+}) => {
+  await page.goto("/graph");
+
+  const canvas = page.getByTestId("map-canvas");
+  await expect(canvas).toBeVisible();
+  // 文本层（读屏/检索）给出全部线路与换乘岗位
+  await expect(page.getByTestId("map-lane")).toHaveCount(20);
+  await expect(page.getByTestId("map-shared-job")).toHaveCount(11);
+
+  type Debug = {
+    jobs: Record<string, { x: number; y: number }>;
+    names: Record<string, string>;
+    zoom: number;
+  };
+  const readDebug = () =>
+    page.evaluate(
+      () =>
+        (window as unknown as { __workflowMapDebug?: Debug }).__workflowMapDebug ??
+        null,
+    );
+  await expect
+    .poll(async () => Object.keys((await readDebug())?.jobs ?? {}).length)
+    .toBeGreaterThan(0);
+
+  const box = await canvas.boundingBox();
+  expect(box).not.toBeNull();
+  if (!box) return;
+
+  const sharedNames = (await page.getByTestId("map-shared-job").allInnerTexts()).map(
+    (text) => text.split("：")[0],
+  );
+
+  // 放大到岗位可见（画布才会画出岗位并把它算进命中）
+  for (let i = 0; i < 12; i += 1) {
+    await page.getByTestId("map-zoom-in").click();
+    await page.waitForTimeout(150);
+    const zoom = (await readDebug())?.zoom ?? 0;
+    if (zoom >= 0.8) break;
+  }
+
+  const debug = await readDebug();
+  const target = Object.entries(debug?.jobs ?? {}).find(([id]) =>
+    sharedNames.includes(debug?.names[id] ?? ""),
+  );
+  expect(target).toBeTruthy();
+  if (!target || !debug) return;
+
+  // 拖拽平移：把目标岗位拖到画布中心，顺带验证拖拽交互
+  await page.mouse.move(box.x + 20, box.y + 20);
+  await page.mouse.down();
+  await page.mouse.move(
+    box.x + 20 + (box.width / 2 - target[1].x),
+    box.y + 20 + (box.height / 2 - target[1].y),
+    { steps: 8 },
+  );
+  await page.mouse.up();
+  await page.waitForTimeout(200);
+
+  const moved = (await readDebug())?.jobs[target[0]];
+  expect(moved).toBeTruthy();
+  if (!moved) return;
+  await page.mouse.click(box.x + moved.x, box.y + moved.y);
+  const jobDetail = page.getByTestId("job-detail");
+  await expect(jobDetail).toBeVisible();
+  await expect(jobDetail).toContainText("换乘岗位");
+  await expect(page.getByTestId("job-lanes")).toContainText("出现在");
 });
 
 test("主题切换写入 data-theme 并在刷新后保持", async ({ page }) => {

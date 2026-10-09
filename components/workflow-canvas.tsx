@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Maximize2Icon,
+  Minimize2Icon,
   MinusIcon,
   PauseIcon,
   PlayIcon,
@@ -11,6 +12,18 @@ import {
   XIcon,
 } from "lucide-react";
 import { cn } from "cn";
+import {
+  bezierPoint,
+  canvasFont,
+  curveMidpoint,
+  readCanvasColors,
+  roundRect,
+  truncate,
+  type CanvasBounds,
+  type CanvasPoint,
+} from "@/lib/canvas";
+import { useCanvasViewport } from "@/lib/use-canvas-viewport";
+import { useFullscreen } from "@/lib/use-fullscreen";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,10 +64,11 @@ interface JobNode {
   y: number;
 }
 
-interface View {
-  scale: number;
-  offsetX: number;
-  offsetY: number;
+interface EdgeGeometry {
+  p0: CanvasPoint;
+  c1: CanvasPoint;
+  c2: CanvasPoint;
+  p3: CanvasPoint;
 }
 
 const STAGE_W = 208;
@@ -64,17 +78,14 @@ const GAP_Y = 196;
 const JOB_SPREAD = 96;
 const JOB_R = 6;
 const JOB_LABEL_MIN_SCALE = 1.05;
-/** 默认（适应画布）只给阶段层；放大到一定程度才出现岗位这一层 */
 const JOB_DOT_MIN_SCALE = 1;
 const PADDING = 56;
 
 /** 世界坐标布局：第一行从左到右，第二行从右到左，形成蛇形主链。 */
 function computeLayout(stages: PipelineStage[]) {
-  const columns = Math.ceil(stages.length / 2);
+  const columns = Math.max(1, Math.ceil(stages.length / 2));
   const stageRects: StageRect[] = stages.map((_, index) => {
-    if (index < columns) {
-      return { x: index * (STAGE_W + GAP_X), y: 0 };
-    }
+    if (index < columns) return { x: index * (STAGE_W + GAP_X), y: 0 };
     const j = index - columns;
     return { x: (columns - 1 - j) * (STAGE_W + GAP_X), y: STAGE_H + GAP_Y };
   });
@@ -94,7 +105,7 @@ function computeLayout(stages: PipelineStage[]) {
   return { stageRects, jobNodes, columns };
 }
 
-function edgeGeometry(a: StageRect, b: StageRect) {
+function edgeGeometry(a: StageRect, b: StageRect): EdgeGeometry {
   const ay = a.y + STAGE_H / 2;
   const by = b.y + STAGE_H / 2;
   const aMid = a.x + STAGE_W / 2;
@@ -104,12 +115,7 @@ function edgeGeometry(a: StageRect, b: StageRect) {
   if (Math.abs(aMid - bMid) < 1) {
     const p0 = { x: aMid, y: a.y + STAGE_H };
     const p3 = { x: bMid, y: b.y };
-    return {
-      p0,
-      p3,
-      c1: { x: p0.x, y: p0.y + 64 },
-      c2: { x: p3.x, y: p3.y - 64 },
-    };
+    return { p0, p3, c1: { x: p0.x, y: p0.y + 64 }, c2: { x: p3.x, y: p3.y - 64 } };
   }
 
   const dir = bMid > aMid ? 1 : -1;
@@ -123,51 +129,11 @@ function edgeGeometry(a: StageRect, b: StageRect) {
   };
 }
 
-function bezierPoint(
-  p0: { x: number; y: number },
-  c1: { x: number; y: number },
-  c2: { x: number; y: number },
-  p3: { x: number; y: number },
-  t: number,
-) {
-  const mt = 1 - t;
-  return {
-    x: mt * mt * mt * p0.x + 3 * mt * mt * t * c1.x + 3 * mt * t * t * c2.x + t * t * t * p3.x,
-    y: mt * mt * mt * p0.y + 3 * mt * mt * t * c1.y + 3 * mt * t * t * c2.y + t * t * t * p3.y,
-  };
-}
-
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number,
-) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
-}
-
-function truncate(ctx: CanvasRenderingContext2D, text: string, max: number) {
-  if (ctx.measureText(text).width <= max) return text;
-  let out = text;
-  while (out.length > 1 && ctx.measureText(`${out}…`).width > max) {
-    out = out.slice(0, -1);
-  }
-  return `${out}…`;
-}
-
 /**
- * 协作链路的画布视图：信息由浅到深。
+ * 单条链路的画布视图：信息由浅到深。
  *   远景：只有阶段节点与交付条数；
- *   放大：阶段下方散出岗位节点，再放大出现岗位名；
- *   悬停/点击：高亮相邻交付路径，右侧下方给出明细卡片。
+ *   放大：阶段下方散出岗位节点，再放大出现岗位名与岗位级连线；
+ *   悬停/点击：高亮相邻交付路径，下方给出明细卡片。
  * 画布只负责画与交互，文本与链接留在 DOM（读屏与检索依赖下面那份文本层）。
  */
 export function WorkflowCanvas({
@@ -177,364 +143,314 @@ export function WorkflowCanvas({
   stages: PipelineStage[];
   handoffCounts: number[];
 }) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [selection, setSelection] = useState<Selection>(null);
   const [hover, setHover] = useState<Selection>(null);
   const [flowing, setFlowing] = useState(true);
-  const [zoom, setZoom] = useState(1);
 
   const layout = useMemo(() => computeLayout(stages), [stages]);
-  const viewRef = useRef<View>({ scale: 1, offsetX: 0, offsetY: 0 });
+  const edges = useMemo(
+    () =>
+      stages
+        .slice(0, -1)
+        .map((_, index) =>
+          edgeGeometry(layout.stageRects[index], layout.stageRects[index + 1]),
+        ),
+    [layout, stages],
+  );
+  const densest = Math.max(1, ...handoffCounts);
+
   const hoverRef = useRef<Selection>(null);
   const selectionRef = useRef<Selection>(null);
   const flowingRef = useRef(true);
   const phaseRef = useRef(0);
-  const pointerRef = useRef<{
-    id: number;
-    x: number;
-    y: number;
-    moved: boolean;
-    pinchDistance?: number;
-  } | null>(null);
-  const sizeRef = useRef({ width: 0, height: 0 });
 
   useEffect(() => {
     hoverRef.current = hover;
   }, [hover]);
-
   useEffect(() => {
     selectionRef.current = selection;
   }, [selection]);
-
   useEffect(() => {
     flowingRef.current = flowing;
   }, [flowing]);
 
-  const densest = Math.max(1, ...handoffCounts);
-
-  const fit = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const { width, height } = sizeRef.current;
-    if (!width || !height) return;
-
-    const xs = layout.stageRects.map((r) => r.x);
-    const ys = layout.stageRects.map((r) => r.y);
-    // 预留岗位行与标签的横向余量，避免默认视野里被裁掉
-    const minX = Math.min(...xs) - 140;
-    const maxX = Math.max(...xs) + STAGE_W + 140;
-    const minY = Math.min(...ys);
-    const maxY = Math.max(...ys) + STAGE_H + 70;
-
-    const scale = Math.min(
-      (width - PADDING * 2) / (maxX - minX),
-      (height - PADDING * 2) / (maxY - minY),
-      1.5,
-    );
-    const clamped = Math.max(0.32, Math.min(1.5, scale));
-    viewRef.current = {
-      scale: clamped,
-      offsetX: (width - (maxX - minX) * clamped) / 2 - minX * clamped,
-      offsetY: (height - (maxY - minY) * clamped) / 2 - minY * clamped,
+  const getBounds = (): CanvasBounds => {
+    const xs = layout.stageRects.map((rect) => rect.x);
+    const ys = layout.stageRects.map((rect) => rect.y);
+    return {
+      minX: Math.min(...xs) - 140,
+      maxX: Math.max(...xs) + STAGE_W + 140,
+      minY: Math.min(...ys),
+      maxY: Math.max(...ys) + STAGE_H + 70,
     };
-    setZoom(clamped);
-  }, [layout]);
+  };
 
-  const zoomBy = useCallback((factor: number, atX?: number, atY?: number) => {
-    const view = viewRef.current;
-    const { width, height } = sizeRef.current;
-    const cx = atX ?? width / 2;
-    const cy = atY ?? height / 2;
-    const next = Math.max(0.3, Math.min(2.4, view.scale * factor));
-    const ratio = next / view.scale;
-    viewRef.current = {
-      scale: next,
-      offsetX: cx - (cx - view.offsetX) * ratio,
-      offsetY: cy - (cy - view.offsetY) * ratio,
-    };
-    setZoom(next);
-  }, []);
+  const viewport = useCanvasViewport({
+    getBounds,
+    padding: PADDING,
+    maxScale: 2.4,
+    onTap: (clientX, clientY) => setSelection(hitTest(clientX, clientY)),
+  });
+  const { containerRef, canvasRef, viewRef, sizeRef, zoom, fit, zoomBy, toWorld, handlers } =
+    viewport;
+  const fullscreen = useFullscreen(() => containerRef.current);
 
-  // 尺寸与初始适配
-  useEffect(() => {
-    const container = containerRef.current;
-    const canvas = canvasRef.current;
-    if (!container || !canvas) return;
+  function hitTest(clientX: number, clientY: number): Selection {
+    const { x, y } = toWorld(clientX, clientY);
+    const scale = viewRef.current.scale;
+    const showJobs = scale >= JOB_DOT_MIN_SCALE;
+    const radius = Math.max(JOB_R + 4, 10 / scale);
 
-    const observer = new ResizeObserver(() => {
-      const dpr = window.devicePixelRatio || 1;
-      const rect = container.getBoundingClientRect();
-      sizeRef.current = { width: rect.width, height: rect.height };
-      canvas.width = Math.round(rect.width * dpr);
-      canvas.height = Math.round(rect.height * dpr);
-      fit();
-    });
-    observer.observe(container);
-    return () => observer.disconnect();
-  }, [fit]);
+    if (showJobs) {
+      for (const node of layout.jobNodes.flat()) {
+        if ((node.x - x) ** 2 + (node.y - y) ** 2 <= radius * radius) {
+          return { kind: "job", index: node.stageIndex, jobId: node.job.id };
+        }
+      }
+    }
+    for (let index = 0; index < layout.stageRects.length; index += 1) {
+      const rect = layout.stageRects[index];
+      if (
+        x >= rect.x &&
+        x <= rect.x + STAGE_W &&
+        y >= rect.y &&
+        y <= rect.y + STAGE_H
+      ) {
+        return { kind: "stage", index };
+      }
+    }
+    for (let index = 0; index < edges.length; index += 1) {
+      const geo = edges[index];
+      for (let t = 0; t <= 1; t += 0.05) {
+        const point = bezierPoint(geo.p0, geo.c1, geo.c2, geo.p3, t);
+        if ((point.x - x) ** 2 + (point.y - y) ** 2 <= (12 / scale) ** 2) {
+          return { kind: "handoff", index };
+        }
+      }
+    }
+    return null;
+  }
 
-  // 主题切换时颜色要跟着变，重画即可
-  useEffect(() => {
-    const observer = new MutationObserver(() => {
-      phaseRef.current += 0;
-    });
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["data-theme"],
-    });
-    return () => observer.disconnect();
-  }, []);
+  function onPointerMove(event: React.PointerEvent<HTMLCanvasElement>) {
+    const dragging = handlers.onPointerMove(event);
+    if (dragging === true) return;
+    setHover(hitTest(event.clientX, event.clientY));
+  }
 
-  // 主循环
+  // 主循环：粒子相位推进 + 重绘
   useEffect(() => {
     let raf = 0;
     let last = performance.now();
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     function draw() {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    if (!canvas || !ctx) return;
-    const dpr = window.devicePixelRatio || 1;
-    const { width, height } = sizeRef.current;
-    if (!width || !height) return;
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext("2d");
+      const { width, height } = sizeRef.current;
+      if (!canvas || !ctx || !width || !height) return;
 
-    const styles = getComputedStyle(document.documentElement);
-    const token = (name: string, fallback: string) =>
-      styles.getPropertyValue(name).trim() || fallback;
-    const colors = {
-      card: token("--card", "#ffffff"),
-      border: token("--border", "#e6e2d9"),
-      primary: token("--primary", "#4c5fd5"),
-      foreground: token("--foreground", "#1f1d1a"),
-      mutedForeground: token("--muted-foreground", "#6b6459"),
-      muted: token("--muted", "#f1efe9"),
-      hot: token("--hot", "#b5713f"),
-    };
+      const colors = readCanvasColors();
+      const view = viewRef.current;
+      const dpr = window.devicePixelRatio || 1;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, width, height);
 
-    const view = viewRef.current;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, width, height);
-
-    // 画布点阵，暗示这里可以拖拽与缩放
-    ctx.save();
-    ctx.fillStyle = colors.border;
-    ctx.globalAlpha = 0.5;
-    for (let gx = 12; gx < width; gx += 24) {
-      for (let gy = 12; gy < height; gy += 24) {
-        ctx.fillRect(gx, gy, 1, 1);
+      ctx.save();
+      ctx.fillStyle = colors.border;
+      ctx.globalAlpha = 0.5;
+      for (let gx = 12; gx < width; gx += 24) {
+        for (let gy = 12; gy < height; gy += 24) ctx.fillRect(gx, gy, 1, 1);
       }
-    }
-    ctx.restore();
+      ctx.restore();
 
-    ctx.save();
-    ctx.translate(view.offsetX, view.offsetY);
-    ctx.scale(view.scale, view.scale);
+      ctx.save();
+      ctx.translate(view.offsetX, view.offsetY);
+      ctx.scale(view.scale, view.scale);
 
-    const active = hoverRef.current ?? selectionRef.current;
-    const activeStage =
-      active?.kind === "stage"
-        ? active.index
-        : active?.kind === "job"
+      const active = hoverRef.current ?? selectionRef.current;
+      const activeStage =
+        active?.kind === "stage"
           ? active.index
-          : active?.kind === "handoff"
+          : active?.kind === "job"
             ? active.index
-            : null;
-    const activeJobId = active?.kind === "job" ? active.jobId : null;
+            : active?.kind === "handoff"
+              ? active.index
+              : null;
+      const activeJobId = active?.kind === "job" ? active.jobId : null;
+      const showJobs = view.scale >= JOB_DOT_MIN_SCALE;
+      const showJobLabels = view.scale >= JOB_LABEL_MIN_SCALE;
 
-    const showJobs = view.scale >= JOB_DOT_MIN_SCALE;
-    const showJobLabels = view.scale >= JOB_LABEL_MIN_SCALE;
-    const showAllJobEdges = showJobLabels;
-    const edges = stages
-      .slice(0, -1)
-      .map((_, index) =>
-        edgeGeometry(layout.stageRects[index], layout.stageRects[index + 1]),
-      );
-
-    // 1. 阶段之间的交付曲线
-    stages.forEach((stage, index) => {
-      if (index >= stages.length - 1) return;
-      const count = handoffCounts[index];
-      const geo = edges[index];
-      const emphasize =
-        activeStage === null ||
-        activeStage === index ||
-        activeStage === index + 1;
-
-      ctx.save();
-      ctx.globalAlpha = emphasize ? 1 : 0.22;
-      ctx.strokeStyle = colors.border;
-      ctx.lineWidth = 2 + (count / densest) * 8;
-      ctx.lineCap = "round";
-      ctx.beginPath();
-      ctx.moveTo(geo.p0.x, geo.p0.y);
-      ctx.bezierCurveTo(geo.c1.x, geo.c1.y, geo.c2.x, geo.c2.y, geo.p3.x, geo.p3.y);
-      ctx.stroke();
-
-      // 一条交付关系一颗流动的点
-      const dots = count;
-      for (let d = 0; d < dots; d += 1) {
-        const t = ((phaseRef.current * 0.22 + d / dots + index * 0.13) % 1 + 1) % 1;
-        const point = bezierPoint(geo.p0, geo.c1, geo.c2, geo.p3, t);
-        const fade = Math.sin(Math.PI * t);
-        ctx.globalAlpha = (emphasize ? 0.95 : 0.2) * fade;
-        ctx.fillStyle = colors.primary;
+      // 1. 阶段之间的交付曲线
+      edges.forEach((geo, index) => {
+        const count = handoffCounts[index];
+        const emphasize =
+          activeStage === null || activeStage === index || activeStage === index + 1;
+        ctx.save();
+        ctx.globalAlpha = emphasize ? 1 : 0.22;
+        ctx.strokeStyle = colors.border;
+        ctx.lineWidth = 2 + (count / densest) * 8;
+        ctx.lineCap = "round";
         ctx.beginPath();
-        ctx.arc(point.x, point.y, 3.4, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.restore();
-    });
+        ctx.moveTo(geo.p0.x, geo.p0.y);
+        ctx.bezierCurveTo(geo.c1.x, geo.c1.y, geo.c2.x, geo.c2.y, geo.p3.x, geo.p3.y);
+        ctx.stroke();
 
-    // 2. 岗位之间的交付线（放大或选中时出现）
-    stages.forEach((stage, index) => {
-      if (index >= stages.length - 1) return;
-      if (!showAllJobEdges && !activeJobId) return;
-      const targets = layout.jobNodes[index + 1];
-      layout.jobNodes[index].forEach((source) => {
-        const involved =
-          activeJobId === source.job.id ||
-          targets.some((target) => target.job.id === activeJobId);
-        if (activeJobId && !involved) return;
-
-        targets.forEach((target) => {
-          const dim = activeJobId
-            ? !(
-                source.job.id === activeJobId || target.job.id === activeJobId
-              )
-            : false;
-          ctx.save();
-          ctx.globalAlpha = activeJobId ? (dim ? 0.08 : 0.8) : 0.16;
-          ctx.strokeStyle = colors.primary;
-          ctx.lineWidth = activeJobId && !dim ? 1.6 : 1;
+        // 一条交付关系一颗流动的点
+        for (let d = 0; d < count; d += 1) {
+          const t = (((phaseRef.current * 0.22 + d / count + index * 0.13) % 1) + 1) % 1;
+          const point = bezierPoint(geo.p0, geo.c1, geo.c2, geo.p3, t);
+          ctx.globalAlpha = (emphasize ? 0.95 : 0.2) * Math.sin(Math.PI * t);
+          ctx.fillStyle = colors.primary;
           ctx.beginPath();
-          ctx.moveTo(source.x, source.y);
-          const midX = (source.x + target.x) / 2;
-          const midY = (source.y + target.y) / 2 + (target.y > source.y ? 18 : -18);
-          ctx.quadraticCurveTo(midX, midY, target.x, target.y);
-          ctx.stroke();
-          ctx.restore();
-        });
-      });
-    });
-
-    // 3. 阶段节点
-    stages.forEach((stage, index) => {
-      const rect = layout.stageRects[index];
-      const isActive = activeStage === index;
-      const isSelected = selectionRef.current?.kind === "stage" && selectionRef.current.index === index;
-
-      ctx.save();
-      ctx.globalAlpha = activeStage === null || isActive ? 1 : 0.45;
-      roundRect(ctx, rect.x, rect.y, STAGE_W, STAGE_H, 14);
-      ctx.fillStyle = colors.card;
-      ctx.fill();
-      ctx.lineWidth = isSelected ? 3 : isActive ? 2.4 : 1.4;
-      ctx.strokeStyle = isSelected || isActive ? colors.primary : colors.border;
-      ctx.stroke();
-
-      ctx.fillStyle = colors.mutedForeground;
-      ctx.font = '500 11px "PingFang SC", "Microsoft YaHei", system-ui, sans-serif';
-      ctx.fillText(`阶段 ${String(index + 1).padStart(2, "0")}`, rect.x + 16, rect.y + 26);
-      ctx.fillStyle = colors.foreground;
-      ctx.font = '500 15px "PingFang SC", "Microsoft YaHei", system-ui, sans-serif';
-      ctx.fillText(
-        truncate(ctx, stage.name, STAGE_W - 32),
-        rect.x + 16,
-        rect.y + 52,
-      );
-
-      ctx.fillStyle = colors.muted;
-      roundRect(ctx, rect.x + STAGE_W - 76, rect.y + 14, 62, 20, 10);
-      ctx.fill();
-      ctx.fillStyle = colors.mutedForeground;
-      ctx.font = '500 11px system-ui, sans-serif';
-      ctx.fillText(`${stage.jobs.length} 岗位`, rect.x + STAGE_W - 68, rect.y + 28);
-      ctx.restore();
-    });
-
-    // 4. 岗位节点
-    if (showJobs) {
-      stages.forEach((stage, index) => {
-        const emphasizeStage = activeStage === null || activeStage === index;
-        layout.jobNodes[index].forEach((node) => {
-          const isActiveJob = activeJobId === node.job.id;
-          ctx.save();
-          ctx.globalAlpha = emphasizeStage || isActiveJob ? 1 : 0.3;
-          ctx.beginPath();
-          ctx.arc(node.x, node.y, JOB_R, 0, Math.PI * 2);
-          ctx.fillStyle = node.job.hot ? colors.hot : colors.primary;
-          ctx.globalAlpha *= 0.85;
+          ctx.arc(point.x, point.y, 3.4, 0, Math.PI * 2);
           ctx.fill();
-          ctx.restore();
+        }
+        ctx.restore();
+      });
 
-          if (showJobLabels || isActiveJob || (hoverRef.current?.kind === "job" && hoverRef.current.jobId === node.job.id)) {
+      // 2. 岗位级交付线（放大或选中岗位时出现）
+      edges.forEach((_, index) => {
+        if (!showJobLabels && !activeJobId) return;
+        const sources = layout.jobNodes[index];
+        const targets = layout.jobNodes[index + 1];
+        sources.forEach((source) => {
+          const involved =
+            activeJobId === source.job.id ||
+            targets.some((target) => target.job.id === activeJobId);
+          if (activeJobId && !involved) return;
+          targets.forEach((target) => {
+            const dim = activeJobId
+              ? !(source.job.id === activeJobId || target.job.id === activeJobId)
+              : false;
             ctx.save();
-            ctx.globalAlpha = emphasizeStage ? 1 : 0.35;
-            ctx.font = '500 12px "PingFang SC", "Microsoft YaHei", system-ui, sans-serif';
-            ctx.fillStyle = colors.foreground;
-            ctx.textAlign = "center";
-            // 相邻岗位错开一行，长名字也比较不容易压在一起
-            const stagger =
-              layout.jobNodes[index].indexOf(node) % 2 === 0 ? 24 : 40;
-            ctx.fillText(
-              truncate(ctx, node.job.name, JOB_SPREAD - 12),
-              node.x,
-              node.y + stagger,
-            );
+            ctx.globalAlpha = activeJobId ? (dim ? 0.08 : 0.8) : 0.16;
+            ctx.strokeStyle = colors.primary;
+            ctx.lineWidth = activeJobId && !dim ? 1.6 : 1;
+            ctx.beginPath();
+            ctx.moveTo(source.x, source.y);
+            const midX = (source.x + target.x) / 2;
+            const midY = (source.y + target.y) / 2 + (target.y > source.y ? 18 : -18);
+            ctx.quadraticCurveTo(midX, midY, target.x, target.y);
+            ctx.stroke();
             ctx.restore();
-          }
+          });
         });
       });
-    }
 
-    ctx.restore();
+      // 3. 阶段节点
+      stages.forEach((stage, index) => {
+        const rect = layout.stageRects[index];
+        const isActive = activeStage === index;
+        const isSelected =
+          selectionRef.current?.kind === "stage" && selectionRef.current.index === index;
+        ctx.save();
+        ctx.globalAlpha = activeStage === null || isActive ? 1 : 0.45;
+        roundRect(ctx, rect.x, rect.y, STAGE_W, STAGE_H, 14);
+        ctx.fillStyle = colors.card;
+        ctx.fill();
+        ctx.lineWidth = isSelected ? 3 : isActive ? 2.4 : 1.4;
+        ctx.strokeStyle = isSelected || isActive ? colors.primary : colors.border;
+        ctx.stroke();
 
-    // 缩放提示
-    ctx.save();
-    ctx.fillStyle = colors.mutedForeground;
-    ctx.font = '500 11px system-ui, sans-serif';
-    ctx.fillText(
-      view.scale < JOB_DOT_MIN_SCALE
-        ? "放大可看到每个阶段的岗位"
-        : showJobLabels
-          ? "已展开岗位，点岗位看职责与上下游"
-          : "继续放大可看到岗位名",
-      16,
-      height - 16,
-    );
-    ctx.restore();
+        ctx.fillStyle = colors.mutedForeground;
+        ctx.font = canvasFont(11);
+        ctx.fillText(`阶段 ${String(index + 1).padStart(2, "0")}`, rect.x + 16, rect.y + 26);
+        ctx.fillStyle = colors.foreground;
+        ctx.font = canvasFont(15);
+        ctx.fillText(truncate(ctx, stage.name, STAGE_W - 32), rect.x + 16, rect.y + 52);
 
-    // 供冒烟测试定位节点（画布内容无法用选择器定位）
-    (window as unknown as { __workflowCanvasDebug?: unknown }).__workflowCanvasDebug = {
-      nodes: Object.fromEntries(
-        layout.stageRects.map((rect, index) => [
-          stages[index].id,
-          { x: rect.x * view.scale + view.offsetX, y: (rect.y + STAGE_H / 2) * view.scale + view.offsetY },
-        ]),
-      ),
-      jobs: Object.fromEntries(
-        layout.jobNodes.flat().map((node) => [
-          node.job.id,
-          { x: node.x * view.scale + view.offsetX, y: node.y * view.scale + view.offsetY },
-        ]),
-      ),
-      handoffs: Object.fromEntries(
-        edges.map((geo, index) => {
-          const mid = bezierPoint(geo.p0, geo.c1, geo.c2, geo.p3, 0.5);
-          return [
-            index,
+        ctx.fillStyle = colors.muted;
+        roundRect(ctx, rect.x + STAGE_W - 76, rect.y + 14, 62, 20, 10);
+        ctx.fill();
+        ctx.fillStyle = colors.mutedForeground;
+        ctx.font = canvasFont(11);
+        ctx.fillText(`${stage.jobs.length} 岗位`, rect.x + STAGE_W - 68, rect.y + 28);
+        ctx.restore();
+      });
+
+      // 4. 岗位节点
+      if (showJobs) {
+        stages.forEach((stage, index) => {
+          const emphasizeStage = activeStage === null || activeStage === index;
+          layout.jobNodes[index].forEach((node, jobIndex) => {
+            const isActiveJob = activeJobId === node.job.id;
+            ctx.save();
+            ctx.globalAlpha = emphasizeStage || isActiveJob ? 1 : 0.3;
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, JOB_R, 0, Math.PI * 2);
+            ctx.fillStyle = node.job.hot ? colors.hot : colors.primary;
+            ctx.globalAlpha *= 0.85;
+            ctx.fill();
+            ctx.restore();
+
+            if (showJobLabels || isActiveJob) {
+              ctx.save();
+              ctx.globalAlpha = emphasizeStage ? 1 : 0.35;
+              ctx.font = canvasFont(12);
+              ctx.fillStyle = colors.foreground;
+              ctx.textAlign = "center";
+              ctx.fillText(
+                truncate(ctx, node.job.name, JOB_SPREAD - 12),
+                node.x,
+                node.y + (jobIndex % 2 === 0 ? 24 : 40),
+              );
+              ctx.restore();
+            }
+          });
+        });
+      }
+
+      ctx.restore();
+
+      // 层级提示
+      ctx.save();
+      ctx.fillStyle = colors.mutedForeground;
+      ctx.font = canvasFont(11);
+      ctx.fillText(
+        view.scale < JOB_DOT_MIN_SCALE
+          ? "放大可看到每个阶段的岗位"
+          : showJobLabels
+            ? "已展开岗位，点岗位看职责与上下游"
+            : "继续放大可看到岗位名",
+        16,
+        height - 16,
+      );
+      ctx.restore();
+
+      // 供冒烟测试定位节点（画布内容无法用选择器定位）
+      (window as unknown as { __workflowCanvasDebug?: unknown }).__workflowCanvasDebug = {
+        nodes: Object.fromEntries(
+          layout.stageRects.map((rect, index) => [
+            stages[index].id,
             {
-              x: mid.x * view.scale + view.offsetX,
-              y: mid.y * view.scale + view.offsetY,
+              x: rect.x * view.scale + view.offsetX,
+              y: (rect.y + STAGE_H / 2) * view.scale + view.offsetY,
             },
-          ];
-        }),
-      ),
-      zoom: view.scale,
-    };
-
+          ]),
+        ),
+        jobs: Object.fromEntries(
+          layout.jobNodes.flat().map((node) => [
+            node.job.id,
+            {
+              x: node.x * view.scale + view.offsetX,
+              y: node.y * view.scale + view.offsetY,
+            },
+          ]),
+        ),
+        handoffs: Object.fromEntries(
+          edges.map((geo, index) => {
+            const mid = curveMidpoint(geo.p0, geo.c1, geo.c2, geo.p3);
+            return [
+              index,
+              {
+                x: mid.x * view.scale + view.offsetX,
+                y: mid.y * view.scale + view.offsetY,
+              },
+            ];
+          }),
+        ),
+        zoom: view.scale,
+      };
     }
 
     const render = (now: number) => {
@@ -546,104 +462,12 @@ export function WorkflowCanvas({
     };
     raf = requestAnimationFrame(render);
     return () => cancelAnimationFrame(raf);
-  }, [stages, handoffCounts, layout, densest]);
+  }, [canvasRef, edges, handoffCounts, layout, stages, sizeRef, viewRef, densest]);
 
-  function toWorld(clientX: number, clientY: number) {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-    const rect = canvas.getBoundingClientRect();
-    const view = viewRef.current;
-    return {
-      x: (clientX - rect.left - view.offsetX) / view.scale,
-      y: (clientY - rect.top - view.offsetY) / view.scale,
-    };
-  }
-
-  function hitTest(clientX: number, clientY: number): Selection {
-    const { x, y } = toWorld(clientX, clientY);
-    const showJobs = viewRef.current.scale >= JOB_DOT_MIN_SCALE;
-    const radius = Math.max(JOB_R + 4, 10 / viewRef.current.scale);
-
-    if (showJobs) {
-      for (const node of layout.jobNodes.flat()) {
-        if ((node.x - x) ** 2 + (node.y - y) ** 2 <= radius * radius) {
-          return { kind: "job", index: node.stageIndex, jobId: node.job.id };
-        }
-      }
-    }
-    for (let index = 0; index < layout.stageRects.length; index += 1) {
-      const rect = layout.stageRects[index];
-      if (x >= rect.x && x <= rect.x + STAGE_W && y >= rect.y && y <= rect.y + STAGE_H) {
-        return { kind: "stage", index };
-      }
-    }
-    for (let index = 0; index < stages.length - 1; index += 1) {
-      const geo = edgeGeometry(layout.stageRects[index], layout.stageRects[index + 1]);
-      for (let t = 0; t <= 1; t += 0.05) {
-        const point = bezierPoint(geo.p0, geo.c1, geo.c2, geo.p3, t);
-        if ((point.x - x) ** 2 + (point.y - y) ** 2 <= (12 / viewRef.current.scale) ** 2) {
-          return { kind: "handoff", index };
-        }
-      }
-    }
-    return null;
-  }
-
-  function onPointerDown(event: React.PointerEvent<HTMLCanvasElement>) {
-    (event.target as HTMLCanvasElement).setPointerCapture(event.pointerId);
-    pointerRef.current = {
-      id: event.pointerId,
-      x: event.clientX,
-      y: event.clientY,
-      moved: false,
-    };
-  }
-
-  function onPointerMove(event: React.PointerEvent<HTMLCanvasElement>) {
-    const pointer = pointerRef.current;
-    if (pointer && pointer.id === event.pointerId) {
-      const dx = event.clientX - pointer.x;
-      const dy = event.clientY - pointer.y;
-      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) pointer.moved = true;
-      viewRef.current = {
-        ...viewRef.current,
-        offsetX: viewRef.current.offsetX + dx,
-        offsetY: viewRef.current.offsetY + dy,
-      };
-      pointer.x = event.clientX;
-      pointer.y = event.clientY;
-      return;
-    }
-    setHover(hitTest(event.clientX, event.clientY));
-  }
-
-  function onPointerUp(event: React.PointerEvent<HTMLCanvasElement>) {
-    const pointer = pointerRef.current;
-    pointerRef.current = null;
-    if (!pointer || pointer.moved) return;
-    const hit = hitTest(event.clientX, event.clientY);
-    setSelection(hit);
-  }
-
-  function onWheel(event: React.WheelEvent<HTMLCanvasElement>) {
-    event.preventDefault();
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    zoomBy(
-      Math.exp(-event.deltaY * 0.0016),
-      event.clientX - rect.left,
-      event.clientY - rect.top,
-    );
-  }
-
-  const selectedStage =
-    selection?.kind === "stage" ? stages[selection.index] : null;
+  const selectedStage = selection?.kind === "stage" ? stages[selection.index] : null;
   const selectedJob =
     selection?.kind === "job"
-      ? layout.jobNodes
-          .flat()
-          .find((node) => node.job.id === selection.jobId) ?? null
+      ? (layout.jobNodes.flat().find((node) => node.job.id === selection.jobId) ?? null)
       : null;
   const selectedHandoff = selection?.kind === "handoff" ? selection.index : null;
 
@@ -688,6 +512,21 @@ export function WorkflowCanvas({
           <Maximize2Icon className="size-3.5" />
           适应画布
         </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5"
+          data-testid="canvas-fullscreen"
+          data-fullscreen={fullscreen.isFullscreen ? "true" : "false"}
+          onClick={fullscreen.toggle}
+        >
+          {fullscreen.isFullscreen ? (
+            <Minimize2Icon className="size-3.5" />
+          ) : (
+            <Maximize2Icon className="size-3.5" />
+          )}
+          {fullscreen.isFullscreen ? "退出全屏" : "全屏查看"}
+        </Button>
         <p className="text-xs text-muted-foreground">
           拖拽平移 · 滚轮缩放 · 点节点看细节
         </p>
@@ -695,21 +534,25 @@ export function WorkflowCanvas({
 
       <div
         ref={containerRef}
-        className="relative h-[360px] overflow-hidden rounded-xl bg-background ring-1 ring-border/70 lg:h-[440px]"
+        data-fullscreen={fullscreen.isFullscreen ? "true" : "false"}
+        className={cn(
+          "relative overflow-hidden rounded-xl bg-background ring-1 ring-border/70",
+          fullscreen.isFullscreen
+            ? "h-screen w-screen p-6 ring-0"
+            : "h-[360px] lg:h-[440px]",
+        )}
       >
         <canvas
           ref={canvasRef}
           data-testid="workflow-canvas"
           data-zoom={zoom.toFixed(2)}
           className="size-full cursor-grab touch-none active:cursor-grabbing"
-          onPointerDown={onPointerDown}
+          {...handlers}
           onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
           onPointerLeave={() => {
-            pointerRef.current = null;
+            handlers.onPointerLeave();
             setHover(null);
           }}
-          onWheel={onWheel}
         />
       </div>
 

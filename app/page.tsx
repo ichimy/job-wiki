@@ -129,7 +129,16 @@ export default function HomePage() {
 
       <section className="flex flex-col gap-5">
         <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-medium">协作链路</h2>
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-lg font-medium">协作链路</h2>
+            <Link
+              href="/graph"
+              data-testid="graph-link"
+              className="text-xs text-primary hover:underline"
+            >
+              看协作地图（20 条链路怎么相交）→
+            </Link>
+          </div>
           <p className="text-sm text-muted-foreground">
             一个行业里从需求到交付的岗位顺序，相邻阶段之间形成交付关系。
           </p>

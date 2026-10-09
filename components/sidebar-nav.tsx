@@ -29,9 +29,17 @@ export function SidebarNav({
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-background to-transparent" />
       </div>
       <Separator />
-      <p className="px-2.5 text-xs font-medium tracking-wide text-muted-foreground">
-        协作链路
-      </p>
+      <div className="flex items-center gap-2 px-2.5">
+        <p className="text-xs font-medium tracking-wide text-muted-foreground">
+          协作链路
+        </p>
+        <Link
+          href="/graph"
+          className="ml-auto text-[0.7rem] text-muted-foreground hover:text-foreground"
+        >
+          地图
+        </Link>
+      </div>
       <div className="max-h-52 overflow-y-auto">
         <WorkflowNavList workflows={workflows} testId="sidebar-workflow" />
       </div>

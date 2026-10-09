@@ -38,8 +38,8 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Smoke test
-        # test:e2e 会先重新构建一次再跑 Playwright
-        run: pnpm test:e2e
+        # 上一步已经构建过，这里直接跑 Playwright（webServer 会复用 .next 产物）
+        run: pnpm exec playwright test
 
       - name: Upload Playwright report
         if: failure()

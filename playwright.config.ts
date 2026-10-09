@@ -18,10 +18,10 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
     // `pnpm test:e2e` 会先构建；CI 里也已经单独跑过 build。
-    command: `pnpm start --port ${port}`,
+    // 直接调用 next 二进制，少一层 pnpm 包装，Playwright 关闭时能干净回收服务进程。
+    command: `./node_modules/.bin/next start --port ${port}`,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
-    stdout: "pipe",
   },
 });

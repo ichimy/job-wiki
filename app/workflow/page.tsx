@@ -62,19 +62,10 @@ export default function WorkflowIndexPage() {
       </Breadcrumb>
 
       <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-medium tracking-tight">协作链路一览</h1>
-          <Link
-            href="/graph"
-            className="text-xs text-primary hover:underline"
-            data-testid="workflow-index-graph-link"
-          >
-            看协作地图（20 条链路怎么相交）→
-          </Link>
-        </div>
+        <h1 className="text-2xl font-medium tracking-tight">协作链路一览</h1>
         <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
           每条链路是一条赛道，长度就是阶段数（最长 {longest} 段）。带赭色圆点的链路里，
-          有岗位同时出现在别的链路上——点进地图可以看到它在哪换乘。
+          有岗位同时出现在别的链路上，点进链路能看到它站在哪个阶段。
         </p>
         <p className="text-xs text-muted-foreground">
           {workflows.length} 条链路 · {totalJobs} 个岗位次 · 覆盖{" "}

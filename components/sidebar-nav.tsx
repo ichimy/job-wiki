@@ -29,7 +29,7 @@ export function SidebarNav({
   const [workflowFilter, setWorkflowFilter] = useState("");
 
   // 侧栏只服务「行业」与「协作链路」两个视图：
-  // 总览与协作地图是全景页面，不挂侧栏；岗位页同时给出两份清单（它是跨视图的落点）。
+  // 总览不挂侧栏；行业与链路视图各给对应清单；岗位页是跨视图的落点，给两份。
   const onIndustryView = pathname === "/c" || pathname.startsWith("/c/");
   const onWorkflowView =
     pathname === "/workflow" || pathname.startsWith("/workflow/");

@@ -29,12 +29,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly" as const,
       priority: 0.9,
     },
-    {
-      url: `${siteUrl}/graph`,
-      lastModified: updated,
-      changeFrequency: "monthly" as const,
-      priority: 0.9,
-    },
     ...getWorkflows().map((workflow) => ({
       url: `${siteUrl}/workflow/${workflow.id}`,
       lastModified: updated,

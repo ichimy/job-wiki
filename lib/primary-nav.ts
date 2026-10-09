@@ -29,11 +29,4 @@ export const primaryNav: PrimaryNavItem[] = [
     hint: "从需求到交付的岗位顺序",
     isActive: (path) => path === "/workflow" || path.startsWith("/workflow/"),
   },
-  {
-    id: "graph",
-    href: "/graph",
-    label: "协作地图",
-    hint: "20 条链路怎么相交、哪些岗位在换乘",
-    isActive: (path) => path === "/graph",
-  },
 ];

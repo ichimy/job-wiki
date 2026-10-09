@@ -6,7 +6,7 @@ import { fitView, type CanvasBounds, type CanvasView } from "@/lib/canvas";
 
 /**
  * 画布视口：平移、缩放、适应画布，以及指针事件绑定。
- * 两个画布（单条链路、协作地图）共用这套交互，绘制与命中的部分各自实现。
+ * 画布交互（单条链路的画布用），绘制与命中的部分由组件自己实现。
  */
 export function useCanvasViewport({
   getBounds,

@@ -76,13 +76,6 @@ export default function HomePage() {
       description: `20 条链路，每条 4–6 个阶段，标注相邻阶段的交付关系。`,
       meta: "阶段 → 岗位 → 交付关系",
     },
-    {
-      href: "/graph",
-      id: "graph-link",
-      title: "打开协作地图",
-      description: "20 条链路同屏铺开，11 个跨链路岗位标出换乘位置。",
-      meta: "线路 → 阶段 → 岗位",
-    },
   ];
 
   return (
@@ -93,8 +86,9 @@ export default function HomePage() {
             岗位全景
           </h1>
           <p className="max-w-3xl text-base leading-relaxed text-foreground/90">
-            以行业分组为骨架，把 {counts.jobs} 个岗位组织成一张可逐层浏览的行业地图；
-            再用 {counts.workflows} 条协作链路，标明相邻岗位之间的交付顺序。
+            以行业分组为骨架，把 {counts.jobs} 个岗位收进 {counts.categories} 个行业、
+            {counts.groups} 个分组，逐层可查；再用 {counts.workflows} 条协作链路，
+            标明相邻岗位之间的交付顺序。
           </p>
           <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
             同一份数据回答两类问题：某个岗位属于哪些行业、和谁是同组；
@@ -126,7 +120,7 @@ export default function HomePage() {
           ))}
         </div>
 
-        <div className="grid grid-cols-1 gap-2.5 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
           {entries.map((entry) => (
             <Link
               key={entry.href}
@@ -210,7 +204,7 @@ export default function HomePage() {
           <h2 className="text-xl font-medium">协作链路</h2>
           <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
             每条链路按阶段描述一次完整的交付顺序，阶段之间是「上游产出交给下游」的关系。
-            带赭色标记的链路包含跨链路岗位，可在协作地图上查看它在哪几条链路之间换乘。
+            带赭色标记的链路里，有岗位同时出现在别的链路上。
           </p>
         </div>
         <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">

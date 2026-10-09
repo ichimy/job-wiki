@@ -493,7 +493,7 @@ export function WorkflowCanvas({
           "relative overflow-hidden rounded-xl bg-background ring-1 ring-border/70",
           fullscreen.isFullscreen
             ? "h-screen w-screen p-6 ring-0"
-            : "h-[400px] lg:h-[calc(100svh-9rem)] lg:min-h-[520px]",
+            : "h-[400px] lg:h-[calc(100svh-11.5rem)] lg:min-h-[520px]",
         )}
       >
         <canvas
@@ -511,7 +511,7 @@ export function WorkflowCanvas({
       </div>
 
       {/* 右栏：控制条 + 明细 */}
-      <aside className="flex flex-col gap-3">
+      <aside className="flex flex-col gap-3 lg:sticky lg:top-20 lg:max-h-[calc(100svh-11.5rem)] lg:min-h-[520px] lg:overflow-y-auto lg:pr-1">
         {header}
 
         <div className="flex flex-wrap items-center gap-1.5">

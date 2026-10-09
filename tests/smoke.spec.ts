@@ -93,25 +93,35 @@ test("全站没有指向第三方的链接", async ({ page }) => {
 test("线上：Web Analytics 已接入且不外联", async ({ page }) => {
   test.skip(!process.env.PLAYWRIGHT_BASE_URL, "只对线上地址运行");
 
-  const thirdParty: string[] = [];
+  const origin = new URL(process.env.PLAYWRIGHT_BASE_URL!).origin;
+  const thirdParty = new Set<string>();
   page.on("request", (request) => {
     const url = new URL(request.url());
-    if (url.origin !== new URL(page.url()).origin && url.protocol.startsWith("http")) {
-      thirdParty.push(request.url());
+    if (url.protocol.startsWith("http") && url.origin !== origin) {
+      thirdParty.add(url.origin);
     }
   });
 
   await page.goto("/");
 
-  // 脚本由 @vercel/analytics 在 hydrate 后注入到 head
-  const script = page.locator('head script[src="/_vercel/insights/script.js"]');
+  // 脚本由 @vercel/analytics 在 hydrate 后注入，具体路径由 Vercel 下发的配置决定
+  const script = page.locator('script[data-sdkn^="@vercel/analytics"]');
   await expect(script).toBeAttached({ timeout: 10_000 });
+  const src = await script.getAttribute("src");
+  expect(src).toBeTruthy();
 
-  // 生产部署上这个同源脚本必须真的存在（用于确认项目已启用 Web Analytics）
-  const status = await page.evaluate(async () => {
-    const response = await fetch("/_vercel/insights/script.js", { method: "GET" });
+  // 生产部署上这个同源脚本必须真的存在（确认项目已启用 Web Analytics）
+  const status = await page.evaluate(async (url) => {
+    const response = await fetch(url!, { method: "GET" });
     return response.status;
-  });
+  }, src);
   expect(status).toBe(200);
-  expect(thirdParty.filter((url) => !url.startsWith(new URL(page.url()).origin))).toEqual([]);
+
+  const sdk = await page.evaluate(() => ({
+    mode: (window as unknown as { vam?: string }).vam,
+    queued: typeof (window as unknown as { va?: unknown }).va,
+  }));
+  expect(sdk.mode).toBe("production");
+  expect(sdk.queued).toBe("function");
+  expect([...thirdParty]).toEqual([]);
 });

@@ -89,3 +89,29 @@ test("全站没有指向第三方的链接", async ({ page }) => {
     expect(external, `${route} 出现了出站链接`).toBe(0);
   }
 });
+
+test("线上：Web Analytics 已接入且不外联", async ({ page }) => {
+  test.skip(!process.env.PLAYWRIGHT_BASE_URL, "只对线上地址运行");
+
+  const thirdParty: string[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (url.origin !== new URL(page.url()).origin && url.protocol.startsWith("http")) {
+      thirdParty.push(request.url());
+    }
+  });
+
+  await page.goto("/");
+
+  // 脚本由 @vercel/analytics 在 hydrate 后注入到 head
+  const script = page.locator('head script[src="/_vercel/insights/script.js"]');
+  await expect(script).toBeAttached({ timeout: 10_000 });
+
+  // 生产部署上这个同源脚本必须真的存在（用于确认项目已启用 Web Analytics）
+  const status = await page.evaluate(async () => {
+    const response = await fetch("/_vercel/insights/script.js", { method: "GET" });
+    return response.status;
+  });
+  expect(status).toBe(200);
+  expect(thirdParty.filter((url) => !url.startsWith(new URL(page.url()).origin))).toEqual([]);
+});

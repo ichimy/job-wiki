@@ -60,4 +60,6 @@ Prefer short imperative subjects with a scope, e.g. `data: 补充新能源行业
 
 ## Security & Configuration Tips
 
-No secrets are needed. Keep the site free of external requests and outbound links to third-party sites; the only external URL is the canonical site origin in `lib/site.ts` (`NEXT_PUBLIC_SITE_URL` overrides it on Vercel).
+No secrets are needed in the repo. Keep the site free of external requests and outbound links to third-party sites; the only external URL is the canonical site origin in `lib/site.ts` (`NEXT_PUBLIC_SITE_URL` overrides it on Vercel).
+
+Vercel Web Analytics is wired in `app/layout.tsx` and renders only when `VERCEL_ENV === "production"`, so it injects the same-origin `/_vercel/insights/script.js` in production and nothing at all locally or on previews.

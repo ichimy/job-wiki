@@ -26,7 +26,7 @@ import {
 import { useCanvasViewport } from "@/lib/use-canvas-viewport";
 import { useFullscreen } from "@/lib/use-fullscreen";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Tooltip,
@@ -651,13 +651,12 @@ export function WorkflowCanvas({
                     .join("、")}
                 </p>
               )}
-              <Button
-                size="sm"
-                variant="outline"
-                render={<Link href={`/job/${selectedJob.job.id}`} />}
+              <Link
+                href={`/job/${selectedJob.job.id}`}
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
               >
                 看岗位详情
-              </Button>
+              </Link>
             </div>
           </Card>
         )}

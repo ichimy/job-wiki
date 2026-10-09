@@ -97,14 +97,14 @@ export function CommandPalette({
       <Button
         variant="outline"
         size="sm"
-        className="gap-2 text-muted-foreground"
+        className="h-8 w-8 justify-center gap-2 rounded-lg px-0 text-muted-foreground sm:w-60 sm:justify-start sm:px-2.5"
         aria-label="搜索岗位"
         data-testid="command-trigger"
         onClick={() => setOpen(true)}
       >
-        <SearchIcon />
-        <span className="hidden sm:inline">搜索岗位</span>
-        <kbd className="ml-1 hidden rounded border border-border bg-muted px-1.5 font-sans text-[0.7rem] text-muted-foreground sm:inline">
+        <SearchIcon className="size-3.5 shrink-0" />
+        <span className="hidden truncate sm:inline">搜索岗位、职责或行业</span>
+        <kbd className="ml-auto hidden shrink-0 rounded border border-border bg-muted px-1 py-0.5 font-sans text-[0.65rem] text-muted-foreground sm:inline">
           ⌘K
         </kbd>
       </Button>

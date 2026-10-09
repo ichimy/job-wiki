@@ -20,30 +20,39 @@ export function SiteHeader({
   const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/80 bg-background/85 backdrop-blur supports-backdrop-filter:bg-background/70">
-      <div className="mx-auto flex h-14 w-full max-w-[1440px] items-center gap-2 px-4 lg:px-8">
+    <header className="sticky top-0 z-40 border-b border-border/70 bg-background/80 backdrop-blur-md supports-backdrop-filter:bg-background/65">
+      <div className="mx-auto flex h-14 w-full max-w-[1440px] items-center gap-2 px-4 lg:gap-3 lg:px-8">
         <NavSheet categories={categories} workflows={workflows} />
+
         <Link
           href="/"
-          className="flex min-w-0 items-center gap-2 rounded-lg px-1 py-1 transition-colors hover:bg-muted/70"
+          aria-label="岗位全景 · 回到总览"
+          className="group -ml-1 flex min-w-0 items-center gap-2.5 rounded-xl px-1.5 py-1.5 transition-colors hover:bg-muted/60"
         >
-          <Image
-            src="/logo.png"
-            alt=""
-            width={26}
-            height={26}
-            priority
-            className="size-6.5 rounded-md"
-          />
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-primary/15 transition-colors group-hover:bg-primary/15">
+            <Image
+              src="/logo.png"
+              alt=""
+              width={20}
+              height={20}
+              priority
+              className="size-5 rounded-sm"
+            />
+          </span>
           <span className="flex min-w-0 flex-col leading-tight">
-            <span className="truncate text-sm font-medium">岗位全景</span>
-            <span className="hidden truncate text-[0.7rem] text-muted-foreground sm:block lg:hidden xl:block">
+            <span className="truncate text-sm font-medium tracking-tight">
+              岗位全景
+            </span>
+            <span className="hidden truncate text-[0.68rem] text-muted-foreground xl:block">
               行业 · 分组 · 岗位 · 协作链路
             </span>
           </span>
         </Link>
 
-        <nav aria-label="主导航" className="ml-2 hidden items-center gap-0.5 lg:flex">
+        <nav
+          aria-label="主导航"
+          className="ml-1 hidden items-center gap-0.5 rounded-full bg-muted/60 p-0.5 lg:flex"
+        >
           {primaryNav.map((item) => {
             const active = item.isActive(pathname);
             return (
@@ -53,10 +62,10 @@ export function SiteHeader({
                 data-testid={`nav-${item.id}`}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "rounded-lg px-2.5 py-1.5 text-sm transition-colors",
+                  "rounded-full px-3 py-1 text-sm whitespace-nowrap transition-all",
                   active
-                    ? "bg-muted font-medium text-foreground"
-                    : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+                    ? "bg-background font-medium text-foreground shadow-sm ring-1 ring-border/70"
+                    : "text-muted-foreground hover:bg-background/70 hover:text-foreground",
                 )}
               >
                 {item.label}
@@ -67,6 +76,10 @@ export function SiteHeader({
 
         <div className="ml-auto flex items-center gap-1.5">
           <CommandPalette categories={categories} workflows={workflows} />
+          <span
+            aria-hidden="true"
+            className="hidden h-5 w-px bg-border lg:block"
+          />
           <ThemeToggle />
         </div>
       </div>

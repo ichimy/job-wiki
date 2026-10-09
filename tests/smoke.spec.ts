@@ -389,6 +389,20 @@ test("全站没有指向第三方的链接", async ({ page }) => {
   }
 });
 
+test("主要页面控制台无报错", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") errors.push(message.text().slice(0, 200));
+  });
+  page.on("pageerror", (error) => errors.push(String(error).slice(0, 200)));
+
+  for (const route of ["/", "/c", "/c/C01", "/workflow", "/workflow/W01", "/job/J0568"]) {
+    await page.goto(route);
+    await page.waitForTimeout(300);
+  }
+  expect(errors).toEqual([]);
+});
+
 test("线上：可观测性脚本已接入且不外联", async ({ page }) => {
   test.skip(!process.env.PLAYWRIGHT_BASE_URL, "只对线上地址运行");
 

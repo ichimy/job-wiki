@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowRightIcon } from "lucide-react";
 import { cn } from "cn";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -94,13 +94,19 @@ export default function HomePage() {
               同一份数据回答两类问题：某个岗位属于哪些行业、和谁是同组；它在一条交付流程里站在哪一段、上游把产出交给谁、它的产出又交给谁。
             </p>
             <div className="mt-7 flex flex-wrap items-center gap-3">
-              <Button className="gap-1.5" render={<Link href="/c" />}>
+              <Link
+                href="/c"
+                className={cn(buttonVariants(), "gap-1.5")}
+              >
                 按行业查岗位
                 <ArrowRightIcon className="size-3.5" />
-              </Button>
-              <Button variant="outline" render={<Link href="/workflow" />}>
+              </Link>
+              <Link
+                href="/workflow"
+                className={buttonVariants({ variant: "outline" })}
+              >
                 沿链路看协作
-              </Button>
+              </Link>
               <span className="text-xs text-muted-foreground">
                 或按 ⌘K 直接搜岗位
               </span>

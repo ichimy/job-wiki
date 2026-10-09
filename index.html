@@ -200,6 +200,55 @@
     font-size: 12px; color: var(--text-3);
   }
 
+  /* ===== 协作详情面板 ===== */
+  .card { cursor: pointer; }
+  .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .drawer-mask {
+    position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, .38);
+    opacity: 0; pointer-events: none; transition: opacity .18s;
+  }
+  .drawer-mask.show { opacity: 1; pointer-events: auto; }
+  .drawer {
+    position: fixed; top: 0; right: 0; z-index: 41; height: 100%;
+    width: 430px; max-width: 92vw; overflow: hidden;
+    display: flex; flex-direction: column;
+    background: var(--card); border-left: 1px solid var(--border);
+    box-shadow: -8px 0 28px rgba(0, 0, 0, .16);
+    transform: translateX(100%); transition: transform .22s ease;
+  }
+  :root[data-theme="dark"] .drawer { box-shadow: -8px 0 28px rgba(0, 0, 0, .5); }
+  .drawer.show { transform: none; }
+  .drawer-head { flex: 0 0 auto; display: flex; justify-content: flex-end; padding: 12px 14px 0; }
+  .drawer-inner { flex: 1 1 auto; overflow-y: auto; padding: 0 22px 40px; }
+  .d-close {
+    width: 28px; height: 28px;
+    border: none; border-radius: 8px; cursor: pointer;
+    background: transparent; color: var(--text-3); font-size: 16px; line-height: 1;
+  }
+  .d-close:hover { background: var(--accent-soft); color: var(--accent); }
+  .d-title { font-size: 19px; font-weight: 600; padding-right: 34px; }
+  .d-duty { margin-top: 8px; font-size: 13px; color: var(--text-2); line-height: 1.75; }
+  .d-sec { margin-top: 22px; }
+  .d-sec h4 { font-size: 12px; font-weight: 600; color: var(--text-3); margin-bottom: 8px; }
+  .d-sec h4 .n { color: var(--accent); }
+  .d-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .d-tag {
+    font-size: 11.5px; color: var(--text-2); background: var(--bg);
+    border: 1px solid var(--border); border-radius: 6px; padding: 2px 8px;
+  }
+  .d-flow { font-size: 12.5px; color: var(--text-2); line-height: 1.8; }
+  .d-flow b { color: var(--text); font-weight: 600; }
+  .d-item {
+    display: flex; align-items: baseline; gap: 8px; width: 100%;
+    padding: 7px 9px; margin-bottom: 4px; text-align: left; cursor: pointer;
+    background: transparent; border: 1px solid transparent; border-radius: 8px;
+    font: inherit; color: var(--text);
+  }
+  .d-item:hover { background: var(--accent-soft); border-color: var(--accent-soft); }
+  .d-item-name { font-size: 13px; font-weight: 500; }
+  .d-item-meta { font-size: 11px; color: var(--text-3); margin-left: auto; text-align: right; }
+  .d-more { font-size: 11.5px; color: var(--text-3); }
+
   /* 窄屏：侧栏回退为顶部横向滚动条 */
   @media (max-width: 960px) {
     .layout { display: block; padding: 0; }
@@ -270,7 +319,13 @@
   </main>
 </div>
 
-<footer>共 <span id="footTotal"></span> 个岗位 · <span id="footMemberships"></span> 条分类归属 · 数据源 data/jobs.json</footer>
+<div class="drawer-mask" id="drawerMask"></div>
+<aside class="drawer" id="drawer" aria-hidden="true" aria-label="岗位协作详情">
+  <div class="drawer-head"><button class="d-close" id="drawerClose" aria-label="关闭">✕</button></div>
+  <div class="drawer-inner" id="drawerInner"></div>
+</aside>
+
+<footer>共 <span id="footTotal"></span> 个岗位 · <span id="footMemberships"></span> 条分类归属 · <span id="footWorkflows"></span> 条协作链路 · <span id="footRelations"></span> 条交付关系 · 数据源 data/jobs.json</footer>
 
 <script src="data.js"></script>
 <script>
@@ -285,6 +340,8 @@
   const clearBtn = document.getElementById('clearBtn');
 
   const categories = data.categories || [];
+  const workflows = data.workflows || [];
+  const relations = data.relations || [];
   const jobsById = {};
   (data.jobs || []).forEach(j => { jobsById[j.id] = j; });
   const hotIds = new Set(data.hot || []);
@@ -292,6 +349,27 @@
   const counts = categories.map(cat => cat.groups.reduce((n, g) => n + g.jobs.length, 0));
   const totalJobs = (data.jobs || []).length;
   const totalMemberships = counts.reduce((a, b) => a + b, 0);
+
+  /* ---------- 协作关系索引 ---------- */
+  const wfById = {};
+  workflows.forEach(w => { wfById[w.id] = w; });
+  const upstream = new Map();   // 岗位 → 向它交付的上游边
+  const downstream = new Map(); // 岗位 → 它交付出去的下游边
+  relations.forEach(r => {
+    if (!upstream.has(r.to)) upstream.set(r.to, []);
+    upstream.get(r.to).push(r);
+    if (!downstream.has(r.from)) downstream.set(r.from, []);
+    downstream.get(r.from).push(r);
+  });
+  const memberships = {};       // 岗位 → 它所属的分类/分组
+  categories.forEach(cat => cat.groups.forEach(g => g.jobs.forEach(id => {
+    if (!memberships[id]) memberships[id] = [];
+    memberships[id].push({ cat: cat.name, group: g.name });
+  })));
+  const stageOf = {};           // 岗位 → 它在某条链路里的阶段
+  workflows.forEach(w => w.stages.forEach((s, i) => s.jobs.forEach(id => {
+    stageOf[id] = { wf: w, stage: s, index: i, total: w.stages.length };
+  })));
 
   /* ---------- 构建分类导航 ---------- */
   const mkChip = (cat, name, cnt) => {
@@ -347,6 +425,13 @@
             (hotIds.has(p.id) ? '<span class="tag-hot">热门</span>' : '') +
           '</div>' +
           '<div class="duty">' + esc(p.duty || '') + '</div>';
+        card.tabIndex = 0;
+        card.setAttribute('role', 'button');
+        card.setAttribute('aria-label', p.name + ' 协作详情');
+        card.addEventListener('click', function () { openJob(p.id); });
+        card.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openJob(p.id); }
+        });
         cards.appendChild(card);
       });
 
@@ -361,9 +446,12 @@
   document.getElementById('stats').innerHTML =
     '<span><b>' + categories.length + '</b> 个行业</span>' +
     '<span><b>' + totalJobs + '</b> 个岗位</span>' +
-    '<span><b>' + totalMemberships + '</b> 条分类归属</span>';
+    '<span><b>' + workflows.length + '</b> 条协作链路</span>' +
+    '<span><b>' + relations.length + '</b> 条交付关系</span>';
   document.getElementById('footTotal').textContent = totalJobs;
   document.getElementById('footMemberships').textContent = totalMemberships;
+  document.getElementById('footWorkflows').textContent = workflows.length;
+  document.getElementById('footRelations').textContent = relations.length;
 
   /* ---------- 视图状态与渲染 ---------- */
   const chips = catNav.querySelectorAll('.cat-chip');
@@ -442,7 +530,118 @@
   syncTopbarH();
 
   window.addEventListener('scroll', refreshNav, { passive: true });
+
+  /* ---------- 协作详情面板 ---------- */
+  const drawer = document.getElementById('drawer');
+  const drawerInner = document.getElementById('drawerInner');
+  const drawerMask = document.getElementById('drawerMask');
+
+  function jobBtn(id, meta) {
+    const j = jobsById[id];
+    if (!j) return '';
+    return '<button class="d-item" data-job="' + esc(id) + '">' +
+      '<span class="d-item-name">' + esc(j.name) + '</span>' +
+      (meta ? '<span class="d-item-meta">' + esc(meta) + '</span>' : '') +
+    '</button>';
+  }
+
+  // 关系边按协作链路分组呈现
+  function relList(edges, pick) {
+    if (!edges.length) return '<div class="d-more">暂未整理</div>';
+    const byWf = new Map();
+    edges.forEach(e => {
+      if (!byWf.has(e.workflow)) byWf.set(e.workflow, []);
+      byWf.get(e.workflow).push(e);
+    });
+    let html = '';
+    byWf.forEach((list, wid) => {
+      const w = wfById[wid];
+      html += '<div class="d-flow"><b>' + esc(w ? w.name : wid) + '</b>（' + list.length + '）</div>';
+      list.forEach(e => {
+        const other = pick(e);
+        const st = stageOf[other];
+        html += jobBtn(other, st ? st.stage.name : '');
+      });
+    });
+    return html;
+  }
+
+  function openJob(id) {
+    const p = jobsById[id];
+    if (!p) return;
+    const mem = memberships[id] || [];
+    const ups = upstream.get(id) || [];
+    const downs = downstream.get(id) || [];
+    const st = stageOf[id];
+
+    // 同组岗位：与它落在同一分组的其他岗位
+    const peers = new Set();
+    mem.forEach(m => {
+      const cat = categories.find(c => c.name === m.cat);
+      const g = cat && cat.groups.find(x => x.name === m.group);
+      if (g) g.jobs.forEach(x => { if (x !== id) peers.add(x); });
+    });
+    const peerList = Array.from(peers);
+    const shown = peerList.slice(0, 16);
+
+    let html = '<div class="d-title">' + esc(p.name) + '</div>';
+    html += '<div class="d-duty">' + esc(p.duty || '') + '</div>';
+    html += '<div class="d-sec"><h4>所属行业 / 分组</h4><div class="d-tags">' +
+      mem.map(m => '<span class="d-tag">' + esc(m.cat + ' / ' + m.group) + '</span>').join('') +
+      '</div></div>';
+    html += '<div class="d-sec"><h4>协作位置</h4>' + (
+      st
+        ? '<div class="d-flow"><b>' + esc(st.wf.name) + '</b><br>第 ' + (st.index + 1) + '/' + st.total + ' 阶段 · ' + esc(st.stage.name) + '</div>'
+        : '<div class="d-more">未纳入已整理的协作链路</div>'
+    ) + '</div>';
+    html += '<div class="d-sec"><h4>上游 <span class="n">' + ups.length + '</span> · 谁的产出交给这个岗位</h4>' +
+      relList(ups, e => e.from) + '</div>';
+    html += '<div class="d-sec"><h4>下游 <span class="n">' + downs.length + '</span> · 这个岗位的产出交给谁</h4>' +
+      relList(downs, e => e.to) + '</div>';
+    html += '<div class="d-sec"><h4>同组岗位 <span class="n">' + peerList.length + '</span></h4>' + (
+      peerList.length
+        ? shown.map(x => jobBtn(x, '')).join('') +
+          (peerList.length > shown.length ? '<div class="d-more">另有 ' + (peerList.length - shown.length) + ' 个同组岗位</div>' : '')
+        : '<div class="d-more">暂无</div>'
+    ) + '</div>';
+
+    drawerInner.innerHTML = html;
+    drawerInner.scrollTop = 0;
+    drawer.classList.add('show');
+    drawerMask.classList.add('show');
+    drawer.setAttribute('aria-hidden', 'false');
+    // 深链接：#job=J0001 可直接打开某个岗位
+    try { history.replaceState(null, '', '#job=' + id); } catch (e) {}
+  }
+
+  function closeDrawer(clearHash) {
+    drawer.classList.remove('show');
+    drawerMask.classList.remove('show');
+    drawer.setAttribute('aria-hidden', 'true');
+    if (clearHash !== false) {
+      try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+    }
+  }
+
+  drawerInner.addEventListener('click', function (e) {
+    const b = e.target.closest('[data-job]');
+    if (b) openJob(b.dataset.job);
+  });
+  document.getElementById('drawerClose').addEventListener('click', function () { closeDrawer(); });
+  drawerMask.addEventListener('click', function () { closeDrawer(); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && drawer.classList.contains('show')) closeDrawer();
+  });
+
+  function applyHash() {
+    const m = /job=(J\d+)/.exec(location.hash || '');
+    if (m && jobsById[m[1]]) openJob(m[1]);
+    else closeDrawer(false);
+  }
+  window.addEventListener('hashchange', applyHash);
+
   render();
+  applyHash();
 
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (m) {

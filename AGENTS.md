@@ -29,6 +29,8 @@ Always rerun the build script after touching `data/jobs.json`, or the page will 
 
 `jobs` holds each job once (`id`, `name`, `duty`). `categories[].groups[].jobs` holds arrays of job ids, so a job belonging to several industries is referenced, never duplicated. `hot` is a top-level list of job ids shown with a 热门 badge. Keep new fields on `jobs` entries so the record shape stays uniform.
 
+`workflows` describes collaboration chains: each has ordered `stages`, and each stage lists the job ids that work in it. A job must appear in at most one stage per workflow. `relations` holds the delivery edges between adjacent stages and is a **generated field** — `scripts/build-data.py` rewrites it from `workflows` on every run, so author changes in `workflows` and never hand-edit `relations`.
+
 ## Coding Style & Naming Conventions
 
 - 2-space indentation in HTML, JS, JSON, and Python.
@@ -40,6 +42,8 @@ Always rerun the build script after touching `data/jobs.json`, or the page will 
 ## Testing Guidelines
 
 No automated test suite. After any data change, verify in the browser: search matches both `name` and `duty`, category chips and scroll-spy highlight correctly, 热门 badges appear, the theme toggle persists, and the header counts match `meta.counts` in `data/jobs.json`. Also confirm the page renders no outbound links.
+
+For collaboration changes, also open a job panel (click a card, or load `index.html#job=<id>`) and check that 上游/下游 list the expected jobs grouped by workflow, and that a job outside every workflow falls back to 未纳入已整理的协作链路.
 
 ## Commit & Pull Request Guidelines
 

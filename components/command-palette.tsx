@@ -24,6 +24,8 @@ interface SearchEntry {
   duty: string;
   cat: string;
   group: string;
+  stage?: string;
+  flow?: string;
 }
 
 const maxResults = 40;
@@ -72,7 +74,7 @@ export function CommandPalette({
     if (!keyword || !entries) return [];
     return entries
       .filter((entry) =>
-        `${entry.name}\n${entry.duty}\n${entry.cat}\n${entry.group}`
+        `${entry.name}\n${entry.duty}\n${entry.cat}\n${entry.group}\n${entry.stage ?? ""}\n${entry.flow ?? ""}`
           .toLowerCase()
           .includes(keyword),
       )
@@ -142,7 +144,8 @@ export function CommandPalette({
                         <span className="flex min-w-0 flex-col gap-0.5">
                           <span className="font-medium">{entry.name}</span>
                           <span className="line-clamp-1 text-xs text-muted-foreground">
-                            {entry.cat} · {entry.duty}
+                            {entry.cat}
+                            {entry.stage ? ` · ${entry.stage}` : ` · ${entry.duty}`}
                           </span>
                         </span>
                         <span className="ml-auto shrink-0 self-center font-mono text-[0.7rem] text-muted-foreground">

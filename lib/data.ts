@@ -266,6 +266,78 @@ export function getCategoryJobCount(category: Category): number {
   return category.groups.reduce((sum, group) => sum + group.jobs.length, 0);
 }
 
+export interface GroupStat {
+  id: string;
+  name: string;
+  jobCount: number;
+  /** 组内同时归属其他行业或分组的岗位数 */
+  crossCount: number;
+}
+
+/** 分组密度：岗位数与「跨行业复用」的岗位数。 */
+export function getGroupStats(category: Category): GroupStat[] {
+  return category.groups.map((group) => ({
+    id: group.id,
+    name: group.name,
+    jobCount: group.jobs.length,
+    crossCount: group.jobs.filter(
+      (jobId) => (membershipByJob.get(jobId)?.length ?? 0) > 1,
+    ).length,
+  }));
+}
+
+export interface CrossIndustryJob {
+  job: Job;
+  /** 去重后的行业（同一行业的两个分组只算一个） */
+  categories: Category[];
+  memberships: Membership[];
+}
+
+/** 跨行业复用最多的岗位：真正跨行业（不同行业）的数量从多到少。 */
+export function getCrossIndustryJobs(limit = 10): CrossIndustryJob[] {
+  return data.jobs
+    .map((job) => {
+      const memberships = getMemberships(job.id);
+      const categories = [
+        ...new Map(
+          memberships.map((membership) => [membership.category.id, membership.category]),
+        ).values(),
+      ];
+      return { job, memberships, categories };
+    })
+    .filter((entry) => entry.categories.length > 1)
+    .sort(
+      (a, b) =>
+        b.categories.length - a.categories.length ||
+        b.memberships.length - a.memberships.length ||
+        a.job.id.localeCompare(b.job.id),
+    )
+    .slice(0, limit);
+}
+
+/** 真正跨行业的岗位数量（归属覆盖 2 个以上行业）。 */
+export function getCrossIndustryCount(): number {
+  return data.jobs.filter((job) => {
+    const categories = new Set(
+      getMemberships(job.id).map((membership) => membership.category.id),
+    );
+    return categories.size > 1;
+  }).length;
+}
+
+/** 同时出现在多条链路上的岗位（换乘岗位）。 */
+export function getMultiWorkflowJobs(limit = 5): { job: Job; workflows: Workflow[] }[] {
+  return data.jobs
+    .map((job) => ({ job, workflows: getWorkflowsOfJob(job.id) }))
+    .filter((entry) => entry.workflows.length > 1)
+    .sort(
+      (a, b) =>
+        b.workflows.length - a.workflows.length ||
+        a.job.id.localeCompare(b.job.id),
+    )
+    .slice(0, limit);
+}
+
 export interface CategoryWithCount {
   category: Category;
   jobCount: number;

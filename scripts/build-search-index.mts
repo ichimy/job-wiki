@@ -34,14 +34,27 @@ interface SearchEntry {
   duty: string;
   cat: string;
   group: string;
+  /** 所在链路与阶段，让「测试验证」这类阶段名也能搜到岗位 */
+  stage: string;
+  flow: string;
 }
 
-const data: { jobs: Job[]; categories: Category[] } = JSON.parse(
-  readFileSync(source, "utf8"),
-);
+interface Workflow {
+  id: string;
+  name: string;
+  stages: { id: string; name: string; jobs: string[] }[];
+}
+
+const data: {
+  jobs: Job[];
+  categories: Category[];
+  workflows: Workflow[];
+} = JSON.parse(readFileSync(source, "utf8"));
 
 const catsByJob = new Map<string, Set<string>>();
 const groupsByJob = new Map<string, Set<string>>();
+const stageByJob = new Map<string, Set<string>>();
+const flowByJob = new Map<string, Set<string>>();
 for (const category of data.categories) {
   for (const group of category.groups) {
     for (const jobId of group.jobs) {
@@ -53,12 +66,25 @@ for (const category of data.categories) {
   }
 }
 
+for (const workflow of data.workflows ?? []) {
+  for (const stage of workflow.stages) {
+    for (const jobId of stage.jobs) {
+      if (!stageByJob.has(jobId)) stageByJob.set(jobId, new Set());
+      if (!flowByJob.has(jobId)) flowByJob.set(jobId, new Set());
+      stageByJob.get(jobId)!.add(stage.name);
+      flowByJob.get(jobId)!.add(workflow.name);
+    }
+  }
+}
+
 const entries: SearchEntry[] = data.jobs.map((job) => ({
   id: job.id,
   name: job.name,
   duty: job.duty,
   cat: [...(catsByJob.get(job.id) ?? [])].join("、"),
   group: [...(groupsByJob.get(job.id) ?? [])].join("、"),
+  stage: [...(stageByJob.get(job.id) ?? [])].join("、"),
+  flow: [...(flowByJob.get(job.id) ?? [])].join("、"),
 }));
 
 mkdirSync(path.dirname(output), { recursive: true });

@@ -15,6 +15,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   getCategoriesWithCount,
   getCounts,
+  getCrossIndustryJobs,
   getMeta,
   getWorkflowIndustries,
   getWorkflowJobCount,
@@ -65,6 +66,7 @@ export default function HomePage() {
 
 
   const topIndustries = categories.slice(0, 3);
+  const crossIndustryJobs = getCrossIndustryJobs(10);
 
   return (
     <div className="flex flex-col gap-14">
@@ -108,7 +110,10 @@ export default function HomePage() {
                 沿链路看协作
               </Link>
               <span className="text-xs text-muted-foreground">
-                或按 ⌘K 直接搜岗位
+                或按 ⌘K 直接搜岗位 ·{" "}
+                <Link href="/start" className="text-primary hover:underline">
+                  第一次来？从哪开始 →
+                </Link>
               </span>
             </div>
           </div>
@@ -191,6 +196,47 @@ export default function HomePage() {
             </Card>
           ))}
         </div>
+      </section>
+
+      <Separator />
+
+      <section className="flex flex-col gap-4" data-testid="cross-industry">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-xl font-medium">跨行业复用</h2>
+          <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
+            同一个岗位出现在多个行业里，说明这套职责在不同行业都有位置。下面是覆盖行业最多的{" "}
+            {crossIndustryJobs.length} 个岗位（同一行业的两个分组只算一个行业）。
+          </p>
+        </div>
+        <ul className="grid gap-2 sm:grid-cols-2">
+          {crossIndustryJobs.map(({ job, categories: jobCategories }) => (
+            <li key={job.id}>
+              <Link
+                href={`/job/${job.id}`}
+                data-testid="cross-industry-job"
+                className="flex items-start gap-3 rounded-xl border border-border/70 bg-card px-3 py-2 transition-colors hover:border-primary/40"
+              >
+                <span className="flex min-w-0 flex-col gap-1">
+                  <span className="truncate text-sm font-medium">{job.name}</span>
+                  <span className="flex flex-wrap gap-1">
+                    {jobCategories.map((category) => (
+                      <Badge
+                        key={category.id}
+                        variant="secondary"
+                        className="h-5 font-normal"
+                      >
+                        {category.name}
+                      </Badge>
+                    ))}
+                  </span>
+                </span>
+                <span className="ml-auto shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
+                  {jobCategories.length} 个行业
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
       </section>
 
       <Separator />

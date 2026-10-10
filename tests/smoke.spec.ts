@@ -30,6 +30,14 @@ test("菜单：一级导航三项，可跳转并高亮当前项", async ({ page 
     "page",
   );
 
+  await page.getByTestId("nav-start").click();
+  await page.waitForURL("**/start");
+  await expect(page.getByTestId("start-track")).toHaveCount(3);
+  await expect(page.getByTestId("nav-start")).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+
   await page.getByTestId("nav-workflows").click();
   await page.waitForURL("**/workflow");
   await expect(page.getByTestId("workflow-entry")).toHaveCount(20);
@@ -149,14 +157,14 @@ test("菜单：同行业双分组的岗位，当前岗位块不出现重复项",
   expect(errors).toEqual([]);
 });
 
-test("菜单：⌘K 空状态含三个视图并能跳转", async ({ page }) => {
+test("菜单：⌘K 空状态含四个视图并能跳转", async ({ page }) => {
   await page.goto("/");
   await expect(async () => {
     await page.keyboard.press("ControlOrMeta+k");
     await expect(page.getByTestId("command-input")).toBeVisible({ timeout: 1000 });
   }).toPass({ timeout: 10_000 });
 
-  await expect(page.getByTestId("command-view-item")).toHaveCount(3);
+  await expect(page.getByTestId("command-view-item")).toHaveCount(4);
   await page
     .getByTestId("command-view-item")
     .filter({ hasText: "协作链路" })
@@ -196,6 +204,44 @@ test("岗位页：上游 2、下游 3、同组 14", async ({ page }) => {
   await expect(page.getByTestId("job-upstream-item")).toHaveCount(2);
   await expect(page.getByTestId("job-downstream-item")).toHaveCount(3);
   await expect(page.getByTestId("job-peer")).toHaveCount(14);
+  await expect(page.getByTestId("job-workflow-link")).toHaveCount(1);
+});
+
+test("岗位页：职责相近的岗位与跨行业复用", async ({ page }) => {
+  await page.goto("/job/J0001");
+  // 职责相近：最多 5 个，且带「不代表等价」的口径说明
+  const related = page.getByTestId("related-jobs");
+  await expect(related).toBeVisible();
+  await expect(page.getByTestId("related-job")).toHaveCount(5);
+  await expect(related).toContainText("不代表岗位等价或要求相同");
+
+  // 跨行业复用：J0078 出现在 4 个行业
+  await page.goto("/job/J0078");
+  await expect(page.getByTestId("job-position")).toBeVisible();
+  await expect(
+    page.locator("text=出现在 4 个行业"),
+  ).toBeVisible();
+});
+
+test("总览：跨行业复用清单", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByTestId("cross-industry-job")).toHaveCount(10);
+  await expect(page.getByTestId("cross-industry")).toContainText("只算一个行业");
+});
+
+test("行业页：分组带跨行业密度", async ({ page }) => {
+  await page.goto("/c/C01");
+  await expect(page.getByTestId("group-section")).toHaveCount(10);
+  await expect(page.getByTestId("group-cross-count").first()).toBeVisible();
+});
+
+test("从哪开始：三条路径与边界说明", async ({ page }) => {
+  await page.goto("/start");
+  await expect(page.getByTestId("start-track")).toHaveCount(3);
+  const scope = page.getByTestId("start-scope");
+  await expect(scope).toContainText("不提供薪资");
+  await expect(scope).toContainText("不代表岗位等价或要求相同");
+  await expect(scope).toContainText("不等于门槛更低");
 });
 
 test("链路页：W01 的 6 个阶段按顺序排列", async ({ page }) => {
@@ -429,6 +475,8 @@ test("主要页面控制台无报错", async ({ page }) => {
     "/job/J0568",
     "/job/J0010",
     "/job/J0319",
+    "/job/J0078",
+    "/start",
   ]) {
     await page.goto(route);
     await page.waitForTimeout(300);

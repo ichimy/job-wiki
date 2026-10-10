@@ -16,6 +16,7 @@ import {
   getCategory,
   getCategoryJobCount,
   getCategories,
+  getGroupStats,
   getHotIds,
   getJob,
   getWorkflows,
@@ -56,6 +57,8 @@ export default async function CategoryPage({
   const groups: GroupJobs[] = category.groups.map((group) => ({
     id: group.id,
     name: group.name,
+    crossCount:
+      getGroupStats(category).find((stat) => stat.id === group.id)?.crossCount ?? 0,
     jobs: group.jobs
       .map((id) => getJob(id))
       .filter((job): job is Job => Boolean(job)),

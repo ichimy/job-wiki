@@ -29,6 +29,7 @@ import {
   type Job,
   type WorkflowJobs,
 } from "@/lib/data";
+import { getRelatedJobs } from "@/lib/related";
 
 export const dynamicParams = false;
 
@@ -148,6 +149,12 @@ export default async function JobPage({
     categoryIds: [...new Set(memberships.map((m) => m.category.id))],
     workflowIds: [...new Set(getWorkflowsOfJob(jobId).map((w) => w.id))],
   };
+  const workflowsOfJob = getWorkflowsOfJob(jobId);
+  const industryCount = [...new Set(memberships.map((m) => m.category.id))].length;
+  const related = getRelatedJobs(jobId)
+    .map((entry) => ({ job: getJob(entry.id), score: entry.score }))
+    .filter((entry): entry is { job: Job; score: number } => Boolean(entry.job));
+  const topScore = related[0]?.score ?? 1;
   const stagePercent = position
     ? Math.round((position.index / position.total) * 100)
     : 0;
@@ -212,7 +219,8 @@ export default async function JobPage({
           <CardHeader className="gap-0.5">
             <CardTitle className="text-sm">所属行业与分组</CardTitle>
             <p className="text-xs text-muted-foreground">
-              共 {memberships.length} 条归属，点进去看同行业的其他岗位
+              {memberships.length} 条归属 · 出现在 {industryCount} 个行业 ·{" "}
+              {workflowsOfJob.length} 条协作链路
             </p>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-1.5">
@@ -235,6 +243,21 @@ export default async function JobPage({
               </p>
             )}
           </CardContent>
+          {workflowsOfJob.length > 0 && (
+            <CardContent className="flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-3 text-xs">
+              <span className="text-muted-foreground">所在链路</span>
+              {workflowsOfJob.map((workflow) => (
+                <Link
+                  key={workflow.id}
+                  href={`/workflow/${workflow.id}`}
+                  data-testid="job-workflow-link"
+                  className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {workflow.name}
+                </Link>
+              ))}
+            </CardContent>
+          )}
         </Card>
 
         <Card size="sm" className="gap-3" data-testid="job-position">
@@ -337,6 +360,58 @@ export default async function JobPage({
           </p>
         ) : (
           <JobLinkList jobs={peers} testId="job-peer" />
+        )}
+      </section>
+
+      <Separator />
+
+      <section className="flex flex-col gap-3" data-testid="related-jobs">
+        <div className="flex flex-col gap-0.5">
+          <h2 className="text-sm font-medium">
+            职责相近的岗位
+            <span className="ml-2 font-mono text-xs text-muted-foreground tabular-nums">
+              {related.length}
+            </span>
+          </h2>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            按职责描述的用词接近程度排序，可以横向看看还有哪些岗位在做类似的事。
+            它只表示描述相近，<span className="text-foreground/80">不代表岗位等价或要求相同</span>。
+          </p>
+        </div>
+        {related.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-xs text-muted-foreground">
+            没有找到描述足够接近的岗位。
+          </p>
+        ) : (
+          <ul className="grid gap-1.5 sm:grid-cols-2">
+            {related.map(({ job: relatedJob, score }) => (
+              <li key={relatedJob.id}>
+                <Link
+                  href={`/job/${relatedJob.id}`}
+                  data-testid="related-job"
+                  className="flex flex-col gap-1.5 rounded-xl border border-border/70 bg-card px-3 py-2 transition-colors hover:border-primary/40"
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="truncate text-sm">{relatedJob.name}</span>
+                    <span className="ml-auto shrink-0 font-mono text-[0.7rem] text-muted-foreground tabular-nums">
+                      {score.toFixed(2)}
+                    </span>
+                  </span>
+                  <span className="h-1 w-full overflow-hidden rounded-full bg-muted">
+                    <span
+                      className="block h-full rounded-full bg-primary/50"
+                      style={{
+                        width: `${Math.max(8, Math.round((score / topScore) * 100))}%`,
+                      }}
+                    />
+                  </span>
+                  <span className="line-clamp-1 text-[0.7rem] text-muted-foreground">
+                    {relatedJob.duty}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
     </div>

@@ -16,6 +16,13 @@ export const primaryNav: PrimaryNavItem[] = [
     isActive: (path) => path === "/",
   },
   {
+    id: "start",
+    href: "/start",
+    label: "从哪开始",
+    hint: "三条路径：还没入行 / 想换方向 / 找位置感",
+    isActive: (path) => path === "/start",
+  },
+  {
     id: "categories",
     href: "/c",
     label: "行业",

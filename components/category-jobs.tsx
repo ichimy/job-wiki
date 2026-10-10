@@ -10,6 +10,8 @@ import type { Job } from "@/lib/data";
 export interface GroupJobs {
   id: string;
   name: string;
+  /** 组内同时归属其他行业或分组的岗位数 */
+  crossCount: number;
   jobs: Job[];
 }
 
@@ -80,6 +82,15 @@ export function CategoryJobs({
             <span className="font-mono text-xs text-muted-foreground tabular-nums">
               {group.jobs.length}
             </span>
+            {group.crossCount > 0 && (
+              <span
+                title={`其中 ${group.crossCount} 个岗位同时归属其他行业或分组`}
+                data-testid="group-cross-count"
+                className="rounded-full bg-muted px-1.5 py-0.5 text-[0.68rem] text-muted-foreground"
+              >
+                跨行业 {group.crossCount}
+              </span>
+            )}
             <span className="ml-auto font-mono text-[0.7rem] text-muted-foreground/70">
               {group.id}
             </span>
